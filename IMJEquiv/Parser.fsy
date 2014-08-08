@@ -53,8 +53,8 @@ Term:
   | IF Term THEN Recover                            { reportError parseState "Expected term for if true branch" 4 }
   | IF Term THEN Term Recover                       { reportError parseState "Expected else" 5 }
   | IF Term THEN Term ELSE Recover                  { reportError parseState "Expected term for if false branch" 6 }
-  | Term ASSN Term                                  { Assn ($1, $3) }
-  | Term ASSN Recover                               { reportError parseState "Expected term" 3 }
+  | Term STOP ID ASSN Term                          { Assn ($1, $3, $5) }
+  | Term STOP ID ASSN Recover                       { reportError parseState "Expected term" 3 }
   | Term STOP ID                                    { Fld ($1, $3) }
   | Term STOP Recover                               { reportError parseState "Expected field or method identifer" 3 }
   | Term STOP ID LPAREN Args RPAREN                 { Call ($1, $3, $5) }

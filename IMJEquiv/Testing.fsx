@@ -9,6 +9,7 @@
 #load "Parser.fs"
 #load "Lexer.fs"
 #load "Parsing.fs"
+#load "Canonical.fs"
 
 open IMJEquiv
 
@@ -33,3 +34,4 @@ pterm """
 """
 pterm "while (if b then 2 else 0) do skip"
 
+Canonical.subCanLet ("x", "z") (Plus ("x", "y"))  
