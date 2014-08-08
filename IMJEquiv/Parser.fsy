@@ -1,0 +1,120 @@
+﻿%{
+
+open IMJEquiv
+open Microsoft.FSharp.Text.Parsing
+
+/// A `ParseError (s,l,c)` exception carries a message
+/// about the nature of the error `s`, a line number `l`
+/// and a column number `c`.
+exception ParseError of String * Int32 * Int32
+
+/// Given a parse state `p`, a message `s` and the item 
+/// number `n` of where the error occurs in the currently 
+/// parsed rule, `reportError p s n` throws a `ParseError`
+/// exception reporting the message, line and column number
+/// corresponding to the error.
+let reportError (p: IParseState) (s: String) (n: Int) =
+  let posn = p.InputStartPosition n
+  raise (ParseError (s, posn.Line, posn.Column + 1))
+
+%}
+
+%start Term
+
+%token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH 
+%token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF 
+%token ASSN IF THEN ELSE NEW LBRACE RBRACE
+%token <String> ID IID
+%token <Int32> INT
+
+%nonassoc letterm
+%left PLUS COLON COMMA SEMICOLON STOP ASSN EQUALS
+%nonassoc castterm
+%nonassoc ifterm
+%nonassoc doterm
+
+%type <Term> Term
+
+%%
+
+Term:
+  | ID                                              { BVar $1 }
+  | INT						                        { Num $1 }
+  | SKIP						                    { Skip }
+  | Term PLUS Term				                    { Plus ($1, $3) }
+  | Term PLUS Recover                               { reportError parseState "Expected term" 3 }
+  | Term EQUALS Term				                { Eq ($1, $3) }
+  | Term EQUALS Recover                             { reportError parseState "Expected term" 3 }
+  | Term SEMICOLON Term			                    { Seq ($1, $3) }
+  | Term SEMICOLON Recover                          { reportError parseState "Expected term" 3 }
+  | IF Term THEN Term ELSE Term     %prec ifterm    { Cond ($2, $4, $6) } 
+  | IF Recover                                      { reportError parseState "Expected term for if guard" 2 }
+  | IF Term Recover                                 { reportError parseState "Expected then" 3 }
+  | IF Term THEN Recover                            { reportError parseState "Expected term for if true branch" 4 }
+  | IF Term THEN Term Recover                       { reportError parseState "Expected else" 5 }
+  | IF Term THEN Term ELSE Recover                  { reportError parseState "Expected term for if false branch" 6 }
+  | Term ASSN Term                                  { Assn ($1, $3) }
+  | Term ASSN Recover                               { reportError parseState "Expected term" 3 }
+  | Term STOP ID                                    { Fld ($1, $3) }
+  | Term STOP Recover                               { reportError parseState "Expected field or method identifer" 3 }
+  | Term STOP ID LPAREN Args RPAREN                 { Call ($1, $3, $5) }
+  | LPAREN IID RPAREN Term          %prec castterm  { Cast ($2, $4) }
+  | LPAREN IID RPAREN Recover                       { reportError parseState "Expected term to be cast" 4 }
+  | LET ID EQUALS Term IN Term      %prec letterm   { Let ($2, $4, $6) }
+  | LET ID EQUALS Term IN Recover                   { reportError parseState "Expected term for let body" 6 }
+  | LET ID EQUALS Recover                           { reportError parseState "Expected term to be bound" 4 }
+  | LET Recover                                     { reportError parseState "Expected identifier to bind to" 2 }
+  | WHILE Term DO Term              %prec doterm    { While ($2, $4) }
+  | WHILE Recover                                   { reportError parseState "Expected term for loop guard" 2 }
+  | WHILE Term Recover                              { reportError parseState "Expected do" 3 }
+  | WHILE Term DO Recover                           { reportError parseState "Expected term for loop body" 4 }
+  | NEW LBRACE NewExp RBRACE                        { New $3 }
+  | NEW Recover                                     { reportError parseState "Expected left brace" 2 }
+  | NEW LBRACE NewExp Recover                       { reportError parseState "Expected right brace" 4 }
+  | LPAREN Term RPAREN                              { $2 }
+
+NewExp:
+  | ID COLON IID SEMICOLON Methods                  { ($1, $3, $5) }
+  | ID Recover                                      { reportError parseState "Expected colon" 2 }
+  | ID COLON Recover                                { reportError parseState "Expected interface identifer" 3 }
+  | ID COLON IID Recover                            { reportError parseState "Expected semicolon" 4 }
+  | ID COLON IID SEMICOLON Recover                  { reportError parseState "Expected method specs" 5 }
+
+Method:
+  | ID COLON BACKSLASH Params STOP Term             { { Name = $1; Vars = $4; Body = $6 } }
+  | ID Recover                                      { reportError parseState "Expected colon" 2 }
+  | ID COLON Recover                                { reportError parseState "Expected lambda expression" 3 }
+  | ID COLON BACKSLASH Recover                      { reportError parseState "Expected parameter list" 4 }
+  | ID COLON BACKSLASH Params Recover               { reportError parseState "Expected stop" 5 }
+  | ID COLON BACKSLASH Params STOP Recover          { reportError parseState "Expected method body" 6 }
+  | LPAREN Method RPAREN                            { $2 }
+
+Methods:
+  |                                                 { [] }
+  | Method                                          { [$1] }
+  | Method COMMA Methods1                           { $1 :: $3 }
+  | Method COMMA Recover                            { reportError parseState "Expected method spec" 3 }
+
+Methods1:
+  | Method                                          { [$1] }
+  | Method COMMA Methods1                           { $1 :: $3 }
+  | Method COMMA Recover                            { reportError parseState "Expected method spec" 3 }
+
+Params:
+  | ID                                              { [$1] }
+  | ID Params                                       { $1 :: $2 }
+
+Args:
+  |                                                 { [] }
+  | Term                                            { [$1] }
+  | Term COMMA Args1                                { $1 :: $3 }
+  | Term COMMA Recover                              { reportError parseState "Expected argument" 3 }
+
+Args1:
+  | Term                                            { [$1] }
+  | Term COMMA Args1                                { $1 :: $3 }
+  | Term COMMA Recover                              { reportError parseState "Expected argument" 3 }
+
+Recover:
+  | error                                           { true }
+  | EOF                                             { false }

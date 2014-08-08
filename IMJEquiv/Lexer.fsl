@@ -1,0 +1,73 @@
+﻿{
+
+module IMJEquiv.Lexer
+open IMJEquiv
+
+open Parser
+open System
+open Microsoft.FSharp.Text.Lexing
+
+/// A `LexerError (x,l,c)` exception reports the
+/// character currently `x` under the head as well as
+/// its line `l` and column `c` number.
+exception LexerError of Char * Int * Int
+
+/// Given a lex buffer `l`, `lexeme l` is the string
+/// representation of the current lexeme.
+let lexeme (lexbuf: LexBuffer<Char>) : String =
+  LexBuffer<Char>.LexemeString lexbuf
+
+/// Given a lex buffer `l`, `processNLs l` has the side effect
+/// of updating `l` to move the line counter on by one line for
+/// each newline character following the current position in `l`
+/// as well as consuming those newline characters.
+let processNLs (l: LexBuffer<Char>) : Unit =
+  Seq.iter (fun c -> if c = '\n' then l.EndPos <- l.EndPos.NextLine) (lexeme l)
+
+}
+
+let digit  = ['0'-'9']
+let lalpha = ['a'-'z']
+let ualpha = ['A'-'Z']
+let idChar = [''' 'a'-'z' 'A'-'Z' '0'-'9' '_']
+let wspace = [' ' '\t']+
+let nl = ('\013' '\010') | '\010'
+
+rule tokenizeMain = 
+  parse
+    | "skip"          { SKIP }
+	| "let"           { LET }
+	| "in"            { IN }
+	| "while"         { WHILE }
+	| "do"            { DO }
+	| "if"            { IF }
+	| "then"          { THEN }
+	| "else"          { ELSE }
+	| "new"           { NEW }
+    | lalpha idChar*  { ID (lexeme lexbuf) }
+	| ualpha idChar*  { IID (lexeme lexbuf) }
+	| digit+          { INT (Int32.Parse (lexeme lexbuf)) }
+	| '+'             { PLUS }
+	| '.'		      { STOP }
+	| ','             { COMMA }
+	| ":="            { ASSN }
+	| ':'             { COLON }
+	| ';'             { SEMICOLON }
+	| '\\'            { BACKSLASH }
+	| "->"		      { RIGHTARROW }
+	| '='             { EQUALS } 
+	| '('		      { LPAREN }
+	| ')'		      { RPAREN }
+	| '{'             { LBRACE }
+	| '}'             { RBRACE }
+	| nl+             { processNLs lexbuf; tokenizeMain lexbuf }
+	| "/*"            { tokenizeComment 0 lexbuf }
+	| wspace          { tokenizeMain lexbuf }
+	| eof             { EOF }
+	| _               { raise (LexerError ((lexeme lexbuf).[0], lexbuf.StartPos.Line, lexbuf.StartPos.Column)) }
+
+and tokenizeComment d = 
+  parse
+    | "*/"       { if d = 0 then tokenizeMain lexbuf else tokenizeComment (d-1) lexbuf}
+	| "/*"       { tokenizeComment (d+1) lexbuf }
+	| _          { processNLs lexbuf; tokenizeComment d lexbuf } 
