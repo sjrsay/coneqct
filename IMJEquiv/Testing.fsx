@@ -2,8 +2,8 @@
 /// it requires the solution to have been built before
 /// in order for the referenced DLLs to be in place.
 
-#r @"..\packages\FsLexYacc.Runtime.6.0.2\lib\net40\FsLexYacc.Runtime.dll"
-#r @"..\..\Utils\bin\Debug\Utils.dll"
+#r @"../packages/FsLexYacc.Runtime.6.0.2/lib/net40/FsLexYacc.Runtime.dll"
+#r @"../../Utils/bin/Debug/Utils.dll"
 
 #load "Syntax.fs"
 #load "Parser.fs"
