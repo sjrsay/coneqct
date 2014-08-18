@@ -12,4 +12,9 @@ let private parse (fn: String) (f: (LexBuffer<Char> -> Parser.token) -> LexBuffe
 /// Given a file name `fn` (for error reporting purposes only) 
 /// and text to be parsed `s`, `term fn s` is the term resulting
 /// from parsing `s` or an exception.
-let term (fn: String) (s: String) = parse fn Parser.Term s
+let term (fn: String) (s: String) : Term = parse fn Parser.Term s
+
+/// Given a file name `fn` (for error reporting purposes only) 
+/// and text to be parsed `s`, `itbl fn s` is the interface table 
+/// resulting from parsing `s` or an exception.
+let itbl (fn: String) (s: String) : ITbl = parse fn Parser.ITbl s

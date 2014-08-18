@@ -1,10 +1,5 @@
 ﻿namespace IMJEquiv
-
-type Ident = String
-
-type FldId = String
-type MethId = String
-type IntId = String
+open IMJEquiv
 
 /// The type of terms, follows the grammar of the paper.
 [<StructuredFormatDisplayAttribute("{Show}")>]

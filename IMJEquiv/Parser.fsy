@@ -19,13 +19,13 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 
 %}
 
-%start Term
+%start Term ITbl
 
-%token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH 
-%token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF 
-%token ASSN IF THEN ELSE NEW LBRACE RBRACE
+%token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT
+%token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF  
+%token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
 %token <String> ID IID
-%token <Int32> INT
+%token <Int32> NUM
 
 %nonassoc letterm
 %left PLUS COLON COMMA SEMICOLON STOP ASSN EQUALS
@@ -34,12 +34,13 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 %nonassoc doterm
 
 %type <Term> Term
+%type <ITbl> ITbl
 
 %%
 
 Term:
   | ID                                              { BVar $1 }
-  | INT						                        { Num $1 }
+  | NUM						                        { Num $1 }
   | SKIP						                    { Skip }
   | Term PLUS Term				                    { Plus ($1, $3) }
   | Term PLUS Recover                               { reportError parseState "Expected term" 3 }
@@ -78,7 +79,6 @@ NewExp:
   | ID Recover                                      { reportError parseState "Expected colon" 2 }
   | ID COLON Recover                                { reportError parseState "Expected interface identifer" 3 }
   | ID COLON IID Recover                            { reportError parseState "Expected semicolon" 4 }
-  | ID COLON IID SEMICOLON Recover                  { reportError parseState "Expected method specs" 5 }
 
 Method:
   | ID COLON BACKSLASH Params STOP Term             { { Name = $1; Vars = $4; Body = $6 } }
@@ -114,6 +114,41 @@ Args1:
   | Term                                            { [$1] }
   | Term COMMA Args1                                { $1 :: $3 }
   | Term COMMA Recover                              { reportError parseState "Expected argument" 3 }
+
+Type:
+  | VOID                                            { Void }
+  | INT                                             { Int }
+  | IID                                             { Iface $1 }
+
+TypeList:
+  | Type                                            { [$1] }
+  | Type TypeList                                   { $1 :: $2 }
+
+IDfn:
+  | Type                                            { IFld $1 }
+  | TypeList RIGHTARROW Type                        { IMth ($1, $3) }
+
+IDfnMap:
+  |                                                 { Map.empty }
+  | ID COLON IDfn                                   { Map.singleton $1 $3 }
+  | ID COLON IDfn COMMA IDfnMap1                    { Map.add $1 $3 $5 }
+
+IDfnMap1:
+  | ID COLON IDfn                                   { Map.singleton $1 $3 }
+  | ID COLON IDfn COMMA IDfnMap1                    { Map.add $1 $3 $5 }
+
+ITblDfn:
+  | IID EQUALS IDfnMap                              { ($1, Eqn $3) }
+  | IID LANGLE IID RANGLE EQUALS IDfnMap            { ($1, Ext ($3,$6)) } 
+
+ITbl:
+  |                                                 { Map.empty }
+  | ITblDfn                                         { Map.singleton (fst $1) (snd $1) }
+  | ITblDfn COMMA ITbl1                             { Map.add (fst $1) (snd $1) $3 }
+
+ITbl1:
+  | ITblDfn                                         { Map.singleton (fst $1) (snd $1) }
+  | ITblDfn COMMA ITbl1                             { Map.add (fst $1) (snd $1) $3 }
 
 Recover:
   | error                                           { true }
