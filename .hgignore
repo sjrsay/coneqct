@@ -1,0 +1,11 @@
+^IMJEquiv/bin
+^IMJEquiv/obj
+^packages
+
+syntax: glob
+*.suo
+*.dll
+__temp__.fsx
+IMJEquiv/Lexer.fs
+IMJEquiv/Parser.fs
+IMJEquiv/Parser.fsi
