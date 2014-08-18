@@ -5,6 +5,7 @@
 #r @"../packages/FsLexYacc.Runtime.6.0.2/lib/net40/FsLexYacc.Runtime.dll"
 #r @"../../Utils/bin/Debug/Utils.dll"
 
+#load "Types.fs"
 #load "Syntax.fs"
 #load "Parser.fs"
 #load "Lexer.fs"
@@ -15,6 +16,10 @@ open IMJEquiv
 
 let pterm t = 
   try Parsing.term "" t with
+  | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
+
+let pitbl t = 
+  try Parsing.itbl "" t with
   | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
 
 pterm "3 + 4"
@@ -33,5 +38,7 @@ pterm """
   }
 """
 pterm "while (if b then 2 else 0) do skip"
+
+itbl "I = f : void -> void"
 
 Canonical.subCanLet ("x", "z") (Plus ("x", "y"))  

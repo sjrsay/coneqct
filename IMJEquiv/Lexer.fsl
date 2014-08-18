@@ -37,6 +37,7 @@ rule tokenizeMain =
   parse
     | "skip"          { SKIP }
 	| "let"           { LET }
+	| "int"           { INT }
 	| "in"            { IN }
 	| "while"         { WHILE }
 	| "do"            { DO }
@@ -44,9 +45,10 @@ rule tokenizeMain =
 	| "then"          { THEN }
 	| "else"          { ELSE }
 	| "new"           { NEW }
+	| "void"          { VOID }
     | lalpha idChar*  { ID (lexeme lexbuf) }
 	| ualpha idChar*  { IID (lexeme lexbuf) }
-	| digit+          { INT (Int32.Parse (lexeme lexbuf)) }
+	| digit+          { NUM (Int32.Parse (lexeme lexbuf)) }
 	| '+'             { PLUS }
 	| '.'		      { STOP }
 	| ','             { COMMA }
@@ -60,6 +62,8 @@ rule tokenizeMain =
 	| ')'		      { RPAREN }
 	| '{'             { LBRACE }
 	| '}'             { RBRACE }
+	| '<'             { LANGLE }
+	| '>'             { RANGLE }
 	| nl+             { processNLs lexbuf; tokenizeMain lexbuf }
 	| "/*"            { tokenizeComment 0 lexbuf }
 	| wspace          { tokenizeMain lexbuf }
