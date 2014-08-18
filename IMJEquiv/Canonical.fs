@@ -1,6 +1,7 @@
 ﻿namespace IMJEquiv
 open IMJEquiv
 
+[<StructuredFormatDisplayAttribute("{Show}")>]
 type Canon =
   | NullR
   | Var of Ident
@@ -8,14 +9,45 @@ type Canon =
   | Let of Ident * CanLet * Canon
   | If of Ident * Canon * Canon
 
-and CanMeth =
+  member c.Show : String =
+    c.ToString ()
+
+  override c.ToString () : String =
+    (Canon.ToTerm c).ToString ()
+
+  static member ToTerm (c: Canon) : Term =
+    match c with
+    | NullR -> Term.Null
+    | NewR (o,x,i,ms) -> 
+        let newtm = Term.New (x,i, List.map CanMeth.ToMethSpec ms)
+        match o with
+        | None -> newtm
+        | Some j -> Term.Cast (j, newtm)
+    | Var x -> BVar x
+    | Let (x,m,b) -> Term.Let (x, CanLet.ToTerm m, Canon.ToTerm b)
+    | If (x,t,f) -> Cond (BVar x, Canon.ToTerm t, Canon.ToTerm f)
+
+and [<StructuredFormatDisplayAttribute("{Show}")>] CanMeth =
   {
     Name: MethId
     Vars: List<Ident>
     Body: Canon
   }
 
-and CanLet =
+  member cm.Show : String =
+    cm.ToString ()
+
+  override cm.ToString () : String =
+    (CanMeth.ToMethSpec cm).ToString ()
+
+  static member ToMethSpec (cm: CanMeth) : MethSpec =
+    {
+      Name = cm.Name
+      Vars = cm.Vars
+      Body = Canon.ToTerm cm.Body
+    }
+
+and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
   | NullL
   | Num of Int32
   | Skip
@@ -28,10 +60,34 @@ and CanLet =
   | While of Ident * Canon
   | NewB of Ident * IntId * List<CanMeth>
 
+  member cl.Show : String =
+    cl.ToString ()
+
+  override cl.ToString () : String =
+    (CanLet.ToTerm cl).ToString ()
+
+  static member ToTerm (cl: CanLet) : Term =
+    match cl with
+    | NullL -> Term.Null
+    | Num n -> Term.Num n
+    | Skip -> Term.Skip
+    | Plus (x,y) -> Term.Plus (BVar x, BVar y)
+    | Eq (x,y) -> Term.VEq (x, y)
+    | Assn (x,f,y) -> Term.Assn (BVar x, f, BVar y)
+    | Cast (i,x) -> Term.Cast (i, BVar x)
+    | Call (x,m,vs) -> Term.Call (BVar x, m, List.map BVar vs)
+    | Fld (x,f) -> Term.VFld (x,f)
+    | While (x,b) -> Term.While (BVar x, Canon.ToTerm b)
+    | NewB (x,i,ms) -> Term.New (x, i, List.map CanMeth.ToMethSpec ms)
+
 
 module Canonical =
 
-  let newVar () : Ident = "_x"
+  let private idCnt : Ref<Int32> = ref 0
+  
+  let newVar () : Ident = 
+    idCnt := !idCnt + 1;
+    "x" + (!idCnt).ToString ()
 
   let subIdent (x: Ident, y: Ident) (z: Ident) : Ident =
     if x = z then y else x
@@ -126,10 +182,19 @@ module Canonical =
      | If (y, c1, c2) ->
          If (y, lemma34 x c1 cm', lemma34 x c2 cm')
 
-  let toTerm (c: Canon) : Term =
-    failwith "Not implemented yet"
+  // The following three are defined as static members only so
+  // that the ToString () and Show machinery can make use of them
+  // for the purpose of displaying canonical forms during
+  // interaction and debugging.
+  let toTerm (c: Canon) : Term = Canon.ToTerm c
+  let methToTerm (cm: CanMeth) : MethSpec = CanMeth.ToMethSpec cm
+  let canLetToTerm (cl: CanLet) : Term = CanLet.ToTerm cl
 
-  let div : Canon = failwith "not yet"
+  /// The canonical form
+  ///    `let x = while 1 do skip in x'
+  /// is divergence in canonical form.
+  let div : Canon = 
+    failwith "Not implemented yet"
 
   let rec canonise (t: Term) : Canon =
     match t with
