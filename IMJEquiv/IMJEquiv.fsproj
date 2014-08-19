@@ -61,6 +61,7 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="TyCheck.fs" />
     <Compile Include="Canonical.fs" />
     <Compile Include="Program.fs" />
     <None Include="Testing.fsx" />
