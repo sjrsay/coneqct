@@ -38,8 +38,15 @@ type ITblDfn =
 
 type ITbl = Map<IntId, ITblDfn>
 
+type TyEnv = Map<Ident, Ty>
+
 module Types =
   
+  /// The constant `varInt` is the VarInt interface,
+  /// i.e. `{ val : int }`
+  let varInt =
+    Eqn (Map.singleton "val" (IFld Int))
+
   /// Given an interface table `d` and two interface idents `i`
   /// and `j`, `subtype d i j` is `true` just if `i` is a subtype
   /// (i.e. stronger than) `j` according to `d` and is `false` o/w.
