@@ -172,7 +172,6 @@ module Canonical =
         match oi with
         | None -> Let (x, cmAsCanLet, newcm')
         | Some i ->
-            // We need to create new variables here 
             let y = newVar ()
             let cast = Cast (i, y) 
             let bdy = Let (x, cast, newcm')
@@ -190,11 +189,24 @@ module Canonical =
   let methToTerm (cm: CanMeth) : MethSpec = CanMeth.ToMethSpec cm
   let canLetToTerm (cl: CanLet) : Term = CanLet.ToTerm cl
 
-  /// The canonical form
-  ///    `let x = while 1 do skip in x'
-  /// is divergence in canonical form.
+  /// The canonical form for divergence `div` is exactly
+  ///    `let y = new {_: VarInt} in 
+  ///     let z = 1 in
+  ///     let _ = y.val := z in
+  ///     let x = while y.val do (let u = skip in u) in 
+  ///     x`
+  /// i.e. the canonical form of `while 1 do skip`.
   let div : Canon = 
-    failwith "Not implemented yet"
+    let y = newVar ()
+    let x = newVar ()
+    let z = newVar ()
+    let u = newVar ()
+    let skipLet  = Let (u, Skip, Var u)
+    let whileLet = Let (x, While (y, skipLet), Var x)
+    let assnLet  = Let (newVar (), Assn (y, "val", z), whileLet)
+    let constLet = Let (z, Num 1, assnLet)
+    let newLet   = Let (y, NewB (newVar (), "VarInt", []), constLet)
+    newLet
 
   let rec canonise (t: Term) : Canon =
     match t with
