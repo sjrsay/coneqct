@@ -39,6 +39,9 @@ pterm """
 """
 pterm "while (if b then 2 else 0) do skip"
 
-itbl "I = f : void -> void"
+pitbl "I = { f : void -> void }"
+pitbl "I<J> = { m : (void, int) -> int, f : void -> void }, J = { f : void }"
+let d = pitbl "I = {}, J = { m1: I -> void }, K<J> = {}, L<K> = { f: int }"
+Types.subtype d "L" "J" // should be true
 
 Canonical.subCanLet ("x", "z") (Plus ("x", "y"))  

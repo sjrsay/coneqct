@@ -122,20 +122,24 @@ Type:
 
 TypeList:
   | Type                                            { [$1] }
-  | Type TypeList                                   { $1 :: $2 }
+  | Type COMMA TypeList                             { $1 :: $3 }
 
 IDfn:
   | Type                                            { IFld $1 }
-  | TypeList RIGHTARROW Type                        { IMth ($1, $3) }
+  | Type RIGHTARROW Type                            { IMth ([$1], $3) }
+  | LPAREN TypeList RPAREN RIGHTARROW Type          { IMth ($2, $5) }
 
 IDfnMap:
+  | LBRACE IDfnMapContent RBRACE                    { $2 }
+
+IDfnMapContent:
   |                                                 { Map.empty }
   | ID COLON IDfn                                   { Map.singleton $1 $3 }
-  | ID COLON IDfn COMMA IDfnMap1                    { Map.add $1 $3 $5 }
+  | ID COLON IDfn COMMA IDfnMapContent1             { Map.add $1 $3 $5 }
 
-IDfnMap1:
+IDfnMapContent1:
   | ID COLON IDfn                                   { Map.singleton $1 $3 }
-  | ID COLON IDfn COMMA IDfnMap1                    { Map.add $1 $3 $5 }
+  | ID COLON IDfn COMMA IDfnMapContent1             { Map.add $1 $3 $5 }
 
 ITblDfn:
   | IID EQUALS IDfnMap                              { ($1, Eqn $3) }
