@@ -48,7 +48,7 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanMeth =
     }
 
 and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
-  | NullL
+  | NullL of Ty
   | Num of Int32
   | Skip
   | Plus of Ident * Ident
@@ -68,7 +68,7 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
 
   static member ToTerm (cl: CanLet) : Term =
     match cl with
-    | NullL -> Term.Null
+    | NullL _ -> Term.Null
     | Num n -> Term.Num n
     | Skip -> Term.Skip
     | Plus (x,y) -> Term.Plus (BVar x, BVar y)
@@ -207,6 +207,9 @@ module Canonical =
     let constLet = Let (z, Num 1, assnLet)
     let newLet   = Let (y, NewB (newVar (), "VarInt", []), constLet)
     newLet
+
+  let typeOfCanLet (d: ITbl) (g: TyEnv) (cl: CanLet) : Ty =
+    failwith "Not implemented yet"
 
   let rec canonise (t: Term) : Canon =
     match t with
