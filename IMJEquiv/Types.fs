@@ -38,14 +38,30 @@ type ITblDfn =
 
 type ITbl = Map<IntId, ITblDfn>
 
-type TyEnv = Map<Ident, Ty>
+type TyEnv = List<Ident * Ty>
 
 module Types =
   
+  let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
+    List.findIndex (fun (y, _) -> x = y) e 
+
   /// The constant `varInt` is the VarInt interface,
   /// i.e. `{ val : int }`
   let varInt =
     Eqn (Map.singleton "val" (IFld Int))
+
+  let rec ofFld (d: ITbl) (i: IntId) (f: FldId) : Ty =
+    let foo (m: IDfnMap) : Option<Ty> =
+      match Map.tryFind f m with
+      | None -> None
+      | Some (IFld ty) -> Some ty
+      | Some (IMth _)  -> failwith "Expected field."
+    match d.[i] with
+    | Eqn m -> Option.get (foo m)
+    | Ext (j, m) ->
+        match foo m with
+        | None -> ofFld d j f
+        | Some ty -> ty
 
   /// Given an interface table `d` and two interface idents `i`
   /// and `j`, `subtype d i j` is `true` just if `i` is a subtype
