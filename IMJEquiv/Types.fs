@@ -45,6 +45,9 @@ module Types =
   let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
     List.findIndex (fun (y, _) -> x = y) e 
 
+  let getTyfromTyEnv (x: Ident) (e: TyEnv) : Ty =
+    snd (List.find (fun (y, _) -> x = y) e)
+
   /// The constant `varInt` is the VarInt interface,
   /// i.e. `{ val : int }`
   let varInt =
@@ -63,11 +66,24 @@ module Types =
         | None -> ofFld d j f
         | Some ty -> ty
 
+  let rec ofMeth (d: ITbl) (i: IntId) (mth: MethId) : (List<Ty> * Ty) =
+    let foo (m: IDfnMap) : Option< (List<Ty>*Ty) > =
+      match Map.tryFind mth m with
+      | None -> None
+      | Some (IFld _) -> failwith "Expected method."
+      | Some (IMth (ins,out))  -> Some (ins,out)
+    match d.[i] with
+    | Eqn m -> Option.get (foo m)
+    | Ext (j, m) ->
+        match foo m with
+        | None -> ofMeth d j mth
+        | Some x -> x
+
   /// Given an interface table `d` and two interface idents `i`
   /// and `j`, `subtype d i j` is `true` just if `i` is a subtype
   /// (i.e. stronger than) `j` according to `d` and is `false` o/w.
   let rec subtype (d: ITbl) (i: IntId) (j: IntId) : Bool =
-    if i = j then 
+    if i = j then
       true 
     else
       match Map.tryFind i d with
