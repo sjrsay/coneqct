@@ -58,6 +58,22 @@ module Automata =
       (i, newMap)
     Map.update k upd s
 
+
+  let renStore (s: SymStore) (ren: Map<RegId, RegId>) : SymStore =
+    let tryapplyR (r: RegId) : RegId =
+      if Map.containsKey r ren then ren.[r] else r
+    let tryapply (x : Val) : Val =
+      match x with
+      | Num _
+      | Star
+      | Nul -> x
+      | Reg r -> Reg (tryapplyR r)
+    let folder acc r (i, m) =
+      let innerfolder acc f v = Map.add f (tryapply v) acc
+      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
+    Map.fold folder Map.empty s
+    
+
   let valSupp (v: Val) : Set<RegId> =
     match v with
     | Num _ 
@@ -163,7 +179,8 @@ module Automata =
         let s0' = Map.filter (fun k _ -> not (Set.contains k spp)) s0
         for s'' in vals d freeRegs fs s' s0' do
           let z' = storeSupp d s''
-          if z = z' then acc := s'' :: !acc else acc := !acc @ stores d s'' s0' z'
+          if z = z' then acc := s'' :: !acc
+          else acc := !acc @ stores d s'' s0' z' // shouldn't this be just acc := stores d s'' s0' z'?
         !acc
 
   let private stateCount = ref 0
@@ -346,14 +363,72 @@ module Automata =
           InitR = cAuto.InitR
           Final = cAuto.Final
         }
-     | Let (x, Call (y,m,zs), c) ->
-        let yi = Types.getTyfromTyEnv y g
-        let (zsty, xty) = Types.ofMeth d yi m
+     | Let (x, CanLet.Call (y,m,zs), c) ->
+        let (Iface yi) = Types.getTyfromTyEnv y g
+        let (_, xty) = Types.ofMeth d yi m
         let (ValM (Reg rj)) = mu.[Types.getPosInTyEnv y g]
-//        match xty with
-//          | Void -> failwith ""
-     | _ -> failwith "TDOD"       
+        let mapper z : Val =
+          match mu.[Types.getPosInTyEnv z g] with
+            | ValM v -> v
+            | _ -> failwith "Expected a value move."
+        let vs = List.map mapper zs
+        let q0 = newState ()
+        let q1 = newState ()
+        let callm = Call (rj, m, vs)
+        let l = Noop (Set.empty, (callm, s))
+        let calltr = LabelT (q0, l, q1)
 
+        let states0 = [q0; q1]
+        let owner0 q = if q=q0 then P else O
+        let trel0 = [calltr]
+        let final0 = []
+        let initS0 = q0
+        let initR0 = Set.toList (Map.domain s)
+        
+        let getTriple st =
+          let oldrs = Map.domain s
+          let newrs = Map.domain st
+          let freshrs = Set.difference newrs oldrs
+          let availrs = Set.difference oldrs newrs
+          let toListInOrder s = List.sortWith (fun x y -> if x<y then -1 else 1) (Set.toList s)
+          let toListinRevOrder l = List.sortWith (fun x y -> if x>y then -1 else 1) (Set.toList s)
+          let folder (ren, avs) fr =
+            match avs with
+              | [] -> (ren, [])
+              | r::rs -> (Map.add fr r ren, rs)
+          let renaming = fst (List.fold folder (Map.empty, toListInOrder availrs) (toListinRevOrder freshrs))
+          let nuX = Map.domain (Map.inverse renaming)
+          let st' = renStore st renaming 
+          let rY = Set.intersect oldrs newrs
+          (rY, nuX, st')
+        match xty with
+          | Void ->
+            let z0 = muSupp mu
+            let allStores = stores d Map.empty s z0
+            let folder (states, owner, trel, final) st =
+              let (rY, nuX, s0') = getTriple st
+              let mu' = List.append mu [ValM Star]
+              let autoc = fromCanon d g c mu' s0'
+              let q' = newState ()
+              let ret1 = SetT (q1, rY, q')
+              let ret2 = LabelT (q', Noop (nuX, (Ret (rj,m,Star), s0')), autoc.InitS)
+              let states' = q' :: states @ autoc.States
+              // owner should really be a Map
+              let owner' q =
+                if q=q' then O
+                else if List.contains q states then (owner q) else (autoc.Owner q)
+              let trel' = [ret1; ret2] @ trel @ autoc.TransRel
+              let final' = final @ autoc.Final
+              (states', owner', trel', final')
+            let (states, owner, trel, final) = List.fold folder (states0, owner0, trel0, final0) allStores 
+            {
+              States = states
+              Owner = owner
+              InitS = initS0
+              TransRel = trel
+              InitR = initR0
+              Final = final
+            }
 
 
 //  and fromCanLet (d: TyEnv) (g: ITbl) (c: CanLet) (l: Label) : Automaton =
