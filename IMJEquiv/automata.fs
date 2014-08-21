@@ -346,6 +346,15 @@ module Automata =
           InitR = cAuto.InitR
           Final = cAuto.Final
         }
+     | Let (x, Call (y,m,zs), c) ->
+        let yi = Types.getTyfromTyEnv y g
+        let (zsty, xty) = Types.ofMeth d yi m
+        let (ValM (Reg rj)) = mu.[Types.getPosInTyEnv y g]
+//        match xty with
+//          | Void -> failwith ""
+     | _ -> failwith "TDOD"       
+
+
 
 //  and fromCanLet (d: TyEnv) (g: ITbl) (c: CanLet) (l: Label) : Automaton =
 //    match c with
