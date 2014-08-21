@@ -59,19 +59,19 @@ module Automata =
     Map.update k upd s
 
 
-  let renStore (s: SymStore) (ren: Map<RegId, RegId>) : SymStore =
-    let tryapplyR (r: RegId) : RegId =
-      if Map.containsKey r ren then ren.[r] else r
-    let tryapply (x : Val) : Val =
-      match x with
-      | Num _
-      | Star
-      | Nul -> x
-      | Reg r -> Reg (tryapplyR r)
-    let folder acc r (i, m) =
-      let innerfolder acc f v = Map.add f (tryapply v) acc
-      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
-    Map.fold folder Map.empty s
+//  let renStore (s: SymStore) (ren: Map<RegId, RegId>) : SymStore =
+//    let tryapplyR (r: RegId) : RegId =
+//      if Map.containsKey r ren then ren.[r] else r
+//    let tryapply (x : Val) : Val =
+//      match x with
+//      | Num _
+//      | Star
+//      | Nul -> x
+//      | Reg r -> Reg (tryapplyR r)
+//    let folder acc r (i, m) =
+//      let innerfolder acc f v = Map.add f (tryapply v) acc
+//      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
+//    Map.fold folder Map.empty s
     
 
   let valSupp (v: Val) : Set<RegId> =
@@ -385,37 +385,25 @@ module Automata =
         let initS0 = q0
         let initR0 = Set.toList (Map.domain s)
         
-        let getTriple st =
+        let getPair st =
           let oldrs = Map.domain s
           let newrs = Map.domain st
-          let freshrs = Set.difference newrs oldrs
-          let availrs = Set.difference oldrs newrs
-          let toListInOrder s = List.sortWith (fun x y -> if x<y then -1 else 1) (Set.toList s)
-          let toListinRevOrder l = List.sortWith (fun x y -> if x>y then -1 else 1) (Set.toList s)
-          let folder (ren, avs) fr =
-            match avs with
-              | [] -> (ren, [])
-              | r::rs -> (Map.add fr r ren, rs)
-          let renaming = fst (List.fold folder (Map.empty, toListInOrder availrs) (toListinRevOrder freshrs))
-          let nuX = Map.domain (Map.inverse renaming)
-          let st' = renStore st renaming 
-          let rY = Set.intersect oldrs newrs
-          (rY, nuX, st')
+          let nuX = Set.difference newrs oldrs
+          (nuX, newrs)
         match xty with
           | Void ->
             let z0 = muSupp mu
             let allStores = stores d Map.empty s z0
-            let folder (states, owner, trel, final) st =
-              let (rY, nuX, s0') = getTriple st
+            let folder (states, owner, trel, final) s0' =
+              let (nuX, rY) = getPair s0'
               let mu' = List.append mu [ValM Star]
               let autoc = fromCanon d g c mu' s0'
               let q' = newState ()
-              let ret1 = SetT (q1, rY, q')
-              let ret2 = LabelT (q', Noop (nuX, (Ret (rj,m,Star), s0')), autoc.InitS)
+              let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Star), s0')), q')
+              let ret2 = SetT (q', rY, autoc.InitS)
               let states' = q' :: states @ autoc.States
-              // owner should really be a Map
-              let owner' q =
-                if q=q' then O
+              let owner' q =  // owner should really be a Map
+                if q=q' then P
                 else if List.contains q states then (owner q) else (autoc.Owner q)
               let trel' = [ret1; ret2] @ trel @ autoc.TransRel
               let final' = final @ autoc.Final
