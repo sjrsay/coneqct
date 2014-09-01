@@ -50,7 +50,7 @@ type StackConst = State
 
 type TransLabel =
   | Push of Set<RegId> * Label * StackConst * Set<RegId>
-  | Pop of  Set<RegId> * Label * StackConst * Set<RegId>
+  | Pop of  Set<RegId> * Label * StackConst * Set<RegId> * Set<RegId>
   | Noop of Set<RegId> * Label
 
 type Transition =
@@ -70,6 +70,7 @@ type Automaton =
    TransRel : List<Transition>
    InitR : List<RegId>
    Final : List<State>
+   Rank : Map<State,SymStore>
  }
 
 module Automata = 
@@ -88,7 +89,7 @@ module Automata =
     | LabelT (_, tl, _) ->
         match tl with
         | Push (_, l, _, _)
-        | Pop  (_, l, _, _)
+        | Pop  (_, l, _, _, _)
         | Noop (_, l)       -> Some l
     | _                 -> None
 
@@ -248,10 +249,11 @@ module Automata =
     do stateCount := !stateCount + 1
     { Val = !stateCount } :> State
 
-  let twoStateAuto (l: Label) : Automaton =
+  let twoStateAuto (l: Label) (s0: SymStore) (sF: SymStore) : Automaton =
     let q0 = newState ()
     let qF = newState ()
     let owner = Map.ofList [(q0, P); (qF, O)]
+    let rank = Map.ofList  [(q0, s0); (qF, sF)]
     let trans =
       LabelT (q0, Noop (Set.empty, l), qF)
     {
@@ -261,6 +263,7 @@ module Automata =
       TransRel = [trans]
       InitR = Set.toList (labelSupp l)
       Final = [qF]
+      Rank = rank
     }
 
 
@@ -273,18 +276,21 @@ module Automata =
         (ts, rs, frontier) 
       else
         let folder (ts', rs', fs') (r: SymStore) =
-          let mkTransFromTrans (acc: Set<Transition>, newrs: Set<SymStore>) (t: Transition) : Set<Transition> * Set<SymStore> = 
+          let mkTransFromTrans (acc: Set<Transition>, newrs: Set<SymStore>) (t: Transition) : Set<Transition> * Set<SymStore> =
+            let domR = Map.domain r
+            let inQ' q r = (Map.isSubset r a.Rank.[q]) && Set.isEmpty (Set.intersect domR (Map.codomain (Map.difference a.Rank.[q] r)))
             match t with
-            | SetT (qo, x, qo') when a.Owner.[qo] = O ->
-                if Set.isEmpty (Set.intersect x (Map.domain r)) 
+            | SetT (qo, x, qo') when a.Owner.[qo] = O && (inQ' qo r) ->
+                if Set.isSubset domR x
                 then
+                  let x' = Set.difference x domR
                   let qor = { State = qo; Store = r } :> State 
                   let qo'r = { State = qo'; Store = r } :> State
-                  let acc' = Set.add (SetT (qor, x, qo'r)) acc
+                  let acc' = Set.add (SetT (qor, x', qo'r)) acc
                   (acc', newrs)
                 else 
                   (acc, newrs)
-            | SetT (qp, x, qp') when a.Owner.[qp] = P ->
+            | SetT (qp, x, qp') when a.Owner.[qp] = P && (inQ' qp r) ->
                 let r' = Map.restrict r x
                 let x' = Set.difference x (Map.domain r)
                 let qpr = { State = qp; Store = r } :> State
@@ -292,7 +298,7 @@ module Automata =
                 let acc' = Set.add (SetT (qpr, x', qp'r')) acc
                 let newrs' = if Set.contains r' rs then newrs else Set.add r' newrs
                 (acc', newrs')
-            | PermT (qo, pi, qo') ->
+            | PermT (qo, pi, qo') when inQ' qo r ->
                 let r' = postApplyPerm pi (Perm.preApply r pi)
                 let qor = { State = qo; Store = r } :> State
                 let qo'r = { State = qo'; Store = r' } :> State
@@ -300,42 +306,48 @@ module Automata =
                 let acc' = Set.add t acc
                 let newrs' = if Set.contains r' rs then newrs else Set.add r' newrs 
                 (acc', newrs')
-            | LabelT (qo, tl, qp) when a.Owner.[qo] = O ->
+            | LabelT (qo, tl, qp') when a.Owner.[qo] = O && (inQ' qo r) ->
                 match tl with
-                | Push (x, (mu, s), _, _) 
-                | Pop  (x, (mu, s), _, _) 
+                | Push _ -> failwith "Push transition on an O-state"
+                | Pop  (x, (mu, s), _, _, _) 
                 | Noop (x, (mu, s))       ->
                     let domR = Map.domain r
+                    let sMinusR = Map.difference s r
                     let suppMu = moveSupp mu
                     let b1 = Map.isSubset r s
-                    let b2 = Set.isEmpty (Set.intersect x domR)
-                    let b3 =
-                      let cond1 ri = not (Set.contains ri suppMu)
-                      let cond2 ri = not (Set.contains ri (Map.domain (Map.difference s r)))
-                      Set.forall (fun ri -> cond1 ri && cond2 ri) domR
+                    let notInDomR = Set.unionMany [x; suppMu; (Map.codomain sMinusR)]
+                    let b2 = Set.isEmpty (Set.intersect domR notInDomR)
+                    // let b2 = Set.isEmpty (Set.intersect x domR)
+                    // let b3 =
+                    //   let cond1 ri = not (Set.contains ri suppMu)
+                    //   let cond2 ri = not (Set.contains ri (Map.domain (Map.difference s r)))
+                    //   Set.forall (fun ri -> cond1 ri && cond2 ri) domR
                     let acc' =
-                      if b1 && b2 && b3 then
+                      if b1 && b2 then
                         let qor = { State = qo; Store = r } :> State
-                        let qpr = { State = qp; Store = r } :> State
+                        let qp'r = { State = qp'; Store = r } :> State
                         let acc' = 
                           let tl' =
                             match tl with
-                            | Push (_, _, q, y) ->
-                                let newq = { State = q; Store = r } :> State 
-                                Push (x, (mu, s), newq, y)
-                            | Pop  (_, _, q, y) -> 
+                            | Push _ -> failwith "Push transition on an O-state"
+                              //    let newq = { State = q; Store = r } :> State 
+                              //    Push (x, (mu, s), newq, y)
+                            | Pop  (_, _, q, y, z) -> 
                                 let newq = { State = q; Store = r } :> State
-                                Pop  (x, (mu, s), newq, y)
-                            | Noop  _ -> tl
-                          Set.add (LabelT (qor, tl', qpr)) acc
+                                let y' = Set.difference y domR
+                                let z' = Set.difference z domR
+                                Pop  (x, (mu, sMinusR), newq, y', z')
+                            | Noop  _ ->
+                                Noop (x, (mu, sMinusR))
+                          Set.add (LabelT (qor, tl', qp'r)) acc
                         acc'
                       else 
                         acc
                     (acc', newrs)
-            | LabelT (qp, tl, qo) when a.Owner.[qp] = P ->
+            | LabelT (qp, tl, qo') when a.Owner.[qp] = P && (inQ' qp r) ->
                 match tl with
+                | Pop  _ -> failwith "Pop transition on a P-state"
                 | Push (x, (mu, s), _, _) 
-                | Pop  (x, (mu, s), _, _) 
                 | Noop (x, (mu, s))       ->
                     let qpr = { State = qp; Store = r } :> State
                     let suppMu = moveSupp mu
@@ -346,19 +358,21 @@ module Automata =
                     let s' = Map.restrict s z
                     let r' = Map.difference s s'
                     let x' = Set.intersect (Set.union x domR) z
-                    let qor' = { State = qo; Store = r' } :> State
+                    let qo'r' = { State = qo'; Store = r' } :> State
                     let tl' = 
                       match tl with
+                      | Pop _ -> failwith "Pop transition on a P-state"
+                        //   let newq = { State = q; Store = r' } :> State
+                        //   Pop  (x', (mu, s'), newq, y)
                       | Push (_, _, q, y) ->
                           let newq = { State = q; Store = r' } :> State 
-                          Push (x', (mu, s'), newq, y)
-                      | Pop  (_, _, q, y) -> 
-                          let newq = { State = q; Store = r' } :> State
-                          Pop  (x', (mu, s'), newq, y)
+                          let y' = Set.difference y (Map.domain r')
+                          Push (x', (mu, s'), newq, y')
                       | Noop  _ -> Noop (x', (mu, s')) 
-                    let acc' = Set.add (LabelT (qpr, tl', qor')) acc
+                    let acc' = Set.add (LabelT (qpr, tl', qo'r')) acc
                     let newrs' = if Set.contains r' rs then newrs else Set.add r' newrs
                     (acc', newrs')
+            | _ -> (acc, newrs) // we should only get here if "inQ' q r" is false
           let newTrans, newFront = List.fold mkTransFromTrans (ts', fs') a.TransRel
           let newRs = Set.union rs' newFront
           (newTrans, newRs, newFront) 
@@ -368,6 +382,9 @@ module Automata =
     let newts, newrs, _ = fix (Set.empty, Set.singleton r0, Set.singleton r0)
     let stPairs = Set.product (set a.States) newrs
     let owner = Set.fold (fun m (q,r) -> Map.add ({ State = q; Store = r } :> State) (a.Owner.[q]) m) Map.empty stPairs
+    let rank =
+      let ranker m (q,r) = Map.add ({ State = q; Store = r } :> State) (Map.difference a.Rank.[q] r) m
+      Set.fold ranker Map.empty stPairs
     let finals = Set.fold (fun xs (q,r) -> { State = q; Store = r } :> State :: xs) [] stPairs
     {
       States = Map.domainList owner
@@ -375,17 +392,18 @@ module Automata =
       InitS = q0'
       TransRel = Set.toList newts
       InitR = Set.toList (Set.difference (set a.InitR) (Map.domain r0))
-      Final = finals 
+      Final = finals
+      Rank = rank
     }
       
 
 
   let rec fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: SymStore) : Automaton =
     match cn with
-    | NullR -> twoStateAuto (ValM Nul, s)
+    | NullR -> twoStateAuto (ValM Nul, s) s s
     | Var x -> 
         let k = Types.getPosInTyEnv x g
-        twoStateAuto (mu.[k], s)
+        twoStateAuto (mu.[k], s) s s
     | If (x, c1, c0) ->
         let k = Types.getPosInTyEnv x g
         if mu.[k] = ValM (Num 0) then
