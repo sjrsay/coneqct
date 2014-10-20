@@ -1,40 +1,29 @@
 ﻿namespace IMJEquiv
 open IMJEquiv
+open System
 
 type State =
-  inherit System.IComparable
+  inherit IComparable
 
-type RegId = Int32
-
-type Val =
-  | Num of Int32
-  | Star
-  | Nul
-  | Reg of RegId
-
-type Move = 
-  | ValM of Val
-  | Call of RegId * MethId * List<Val>
-  | Ret of RegId * MethId * Val
-
-type SymStore =
-  Map<RegId, IntId * Map<FldId, Val>>
-
+[<CustomComparison>]
+[<StructuralEquality>]
 type IntState =
   {
     Val : Int
   }
 
   interface State with
-    member x.CompareTo (yobj: Object) : Int =
+    override x.CompareTo (yobj: Object) : Int =
       match yobj with
       | :? IntState as y -> compare x y  
       | _ -> 1
 
+[<CustomComparison>]
+[<StructuralEquality>]
 type PairState =
   {
     State : State
-    Store : SymStore
+    Store : Store
   }
   
   interface State with
@@ -43,7 +32,7 @@ type PairState =
       | :? PairState as y -> compare x y  
       | _ -> -1
 
-type Label = Move * SymStore
+type Label = Move * Store
 
 // This needs looked at
 type StackConst = State
@@ -76,13 +65,6 @@ module Automata =
 
   let maxint = 5
 
-  let updStore (s: SymStore) (k: RegId) (f: FldId) (v: Val) : SymStore =
-    let upd (i, m) =
-      let newMap = 
-        Map.update f (fun _ -> v) m
-      (i, newMap)
-    Map.update k upd s
-
   let labelOfTrans (t: Transition) : Option<Label> =
     match t with
     | LabelT (_, tl, _) ->
@@ -92,22 +74,11 @@ module Automata =
         | Noop (_, l)       -> Some l
     | _                 -> None
 
-  let permuteVal (p: Perm<RegId>) (v: Val) : Val =
-    match v with
-    | Reg r -> Reg p.[r]
-    | _     -> v
-
-  let permuteFields (p: Perm<RegId>) (m: Map<FldId, Val>) : Map<FldId, Val> =
-    Map.map (fun _ v -> permuteVal p v) m
-
-  let postApplyPerm (p: Perm<RegId>) (s: SymStore) : SymStore =
-    Map.map (fun _ (i, v) ->  (i, permuteFields p v)) s
-
 //  let storesOfAutomaton (a: Automaton) : Set<Store> =
 //    let folder (ss: Set<Store>)  
 
 
-//  let renStore (s: SymStore) (ren: Map<RegId, RegId>) : SymStore =
+//  let renStore (s: Store) (ren: Map<RegId, RegId>) : Store =
 //    let tryapplyR (r: RegId) : RegId =
 //      if Map.containsKey r ren then ren.[r] else r
 //    let tryapply (x : Val) : Val =
@@ -121,126 +92,13 @@ module Automata =
 //      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
 //    Map.fold folder Map.empty s
     
-
-  let valSupp (v: Val) : Set<RegId> =
-    match v with
-    | Num _ 
-    | Star 
-    | Nul    -> Set.empty
-    | Reg r  -> Set.singleton r 
-  
-  let rec moveSupp (m: Move) : Set<RegId> =
-    match m with
-    | ValM v -> valSupp v
-    | Call (r,mth,vs) -> 
-        List.fold (fun rvs v -> Set.union (valSupp v) rvs) (Set.singleton r) vs
-    | Ret (r,mth,v) ->
-        Set.add r (valSupp v)
+ 
 
   let muSupp (ms: List<Move>) : Set<RegId> =
-    List.fold (fun acc m -> Set.union acc (moveSupp m)) Set.empty ms
-
-  let storeTypedSupp (d: ITbl) (s: SymStore) : Set<RegId * IntId> =
-    let getInnerVals i acc f v =
-      match v with
-      | Reg r -> 
-          let (Iface j) = Types.ofFld d i f
-          Set.add (r, j) acc
-      | _     -> acc
-    let getOuterVals acc r (i,m) =
-      Map.fold (getInnerVals i) (Set.add (r, i) acc) m
-    Map.fold getOuterVals Set.empty s
-   
-  let storeSuppSplit (s: SymStore) : Set<RegId> * Set<RegId> =
-    let getInnerVals acc f v =
-      match v with
-      | Reg r -> Set.add r acc
-      | _     -> acc
-    let getOuterVals acc _ (_,m) =
-      Map.fold getInnerVals acc m
-    let cod = Map.fold getOuterVals Set.empty s
-    (Map.domain s, cod)
-
-  let storeSupp (s: SymStore) : Set<RegId> =
-    let dom, cod = storeSuppSplit s
-    Set.union dom cod
+    List.fold (fun acc m -> Set.union acc (Move.supp m)) Set.empty ms
 
   let labelSupp ((m,s): Label) : Set<RegId> =
-    Set.union (moveSupp m) (storeSupp s)
-
-  let trim (s: SymStore) (rs: Set<RegId>) : SymStore =
-    let rec fix rs =
-      let s' =
-        Map.filter (fun r _ -> Set.contains r rs) s
-      let newrs = Set.union (storeSupp s') rs
-      if newrs = rs then rs else fix newrs
-    let supp = fix rs
-    Map.filter (fun r _ -> Set.contains r supp) s
-
-  let fields (s: SymStore) (r: RegId) : IntId * List<FldId> =
-    let i, m = s.[r]
-    (i, Map.domainList m)
-
-  let nextReg (rs: Set<RegId>) : RegId =
-    let n = ref 1
-    while Set.contains !n rs do
-      n := !n + 1
-    !n
-
-  let rec vals (d: ITbl) (rs: List<RegId>) (fs: List<FldId>) (s: SymStore) (s0': SymStore) : List<SymStore> =
-    match rs with
-    | [] -> [s]
-    | r::rs' ->
-        match fs with
-        | [] -> 
-            match rs' with
-            | [] -> [s]
-            | r'::rs'' ->
-                let i, fs = fields s r'
-                let s' = Map.add r' (i, Map.empty) s
-                vals d rs' fs s' s0'
-        | f::fs' ->
-            let acc = ref []
-            let rIface = fst s.[r]
-            match Types.ofFld d rIface f with
-            | Ty.Int ->
-                for x in [0..maxint] do
-                  let s' = Map.update r (fun (i, m) -> (i, Map.add f (Num x) m)) s
-                  let ss = vals d rs fs' s' s0'
-                  acc := List.append ss !acc
-                !acc   
-            | Ty.Void ->
-                let s' = Map.update r (fun (i, m) -> (i, Map.add f Star m)) s
-                vals d rs fs' s' s0'
-            | Ty.Iface i ->
-                let sTypedSupp = storeTypedSupp d s
-                let s0'TypedSupp = storeTypedSupp d s0'
-                let sFilteredSupp = Set.fold (fun acc (r, j) -> if i = j then r :: acc else acc) [] sTypedSupp
-                let s0'FilteredSupp = Set.fold (fun acc (r, j) -> if i = j && Set.contains r (Map.domain s0') then r :: acc else acc) [] s0'TypedSupp
-                let fresh = nextReg (Set.union (Set.map fst sTypedSupp) (Map.domain s0'))
-                let choices = fresh :: sFilteredSupp @ s0'FilteredSupp
-                for x in choices do
-                  let s' = Map.update r (fun (i, m) -> (i, Map.add f (Reg x) m)) s
-                  let s0'' = Map.remove x s0'
-                  let ss = vals d rs fs' s' s0''
-                  acc := List.append ss !acc
-                !acc
-
-  let rec stores (d: ITbl) (s: SymStore) (s0: SymStore) (z: Set<RegId>) : List<SymStore> =
-    let freeRegs = Set.toList (Set.difference z (Map.domain s))
-    let acc = ref []
-    match freeRegs with
-    | []    -> [s]
-    | r::rs ->
-        let i, fs = fields s r
-        let s' = Map.add r (i, Map.empty) s
-        let spp = storeSupp s'
-        let s0' = Map.filter (fun k _ -> not (Set.contains k spp)) s0
-        for s'' in vals d freeRegs fs s' s0' do
-          let z' = storeSupp s''
-          if z = z' then acc := s'' :: !acc
-          else acc := !acc @ stores d s'' s0' z' // shouldn't this be just acc := stores d s'' s0' z'?
-        !acc
+    Set.union (Move.supp m) (Store.supp s)
 
   let private stateCount = ref 0
 
@@ -264,16 +122,16 @@ module Automata =
     }
 
 
-  let nu (d: ITbl) (a: Automaton) (r0: SymStore) : Automaton =
+  let nu (d: ITbl) (a: Automaton) (r0: Store) : Automaton =
     let q0' = { State = a.InitS; Store = r0 }
     
-    let rec fix (ts: Set<Transition>, rs: Set<SymStore>, frontier: Set<SymStore>) : Set<Transition> * Set<SymStore> * Set<SymStore> =
+    let rec fix (ts: Set<Transition>, rs: Set<Store>, frontier: Set<Store>) : Set<Transition> * Set<Store> * Set<Store> =
       if Set.isEmpty frontier 
       then 
         (ts, rs, frontier) 
       else
-        let folder (ts', rs', fs') (r: SymStore) =
-          let mkTransFromTrans (acc: Set<Transition>, newrs: Set<SymStore>) (t: Transition) : Set<Transition> * Set<SymStore> = 
+        let folder (ts', rs', fs') (r: Store) =
+          let mkTransFromTrans (acc: Set<Transition>, newrs: Set<Store>) (t: Transition) : Set<Transition> * Set<Store> = 
             match t with
             | SetT (qo, x, qo') when a.Owner.[qo] = O ->
                 if Set.isEmpty (Set.intersect x (Map.domain r)) 
@@ -293,7 +151,7 @@ module Automata =
                 let newrs' = if Set.contains r' rs then newrs else Set.add r' newrs
                 (acc', newrs')
             | PermT (qo, pi, qo') ->
-                let r' = postApplyPerm pi (Perm.preApply r pi)
+                let r' = Store.postPermute pi (Perm.preApply r pi)
                 let qor = { State = qo; Store = r } :> State
                 let qo'r = { State = qo'; Store = r' } :> State
                 let t = PermT (qor, pi, qo'r)
@@ -306,7 +164,7 @@ module Automata =
                 | Pop  (x, (mu, s), _, _) 
                 | Noop (x, (mu, s))       ->
                     let domR = Map.domain r
-                    let suppMu = moveSupp mu
+                    let suppMu = Move.supp mu
                     let b1 = Map.isSubset r s
                     let b2 = Set.isEmpty (Set.intersect x domR)
                     let b3 =
@@ -338,11 +196,11 @@ module Automata =
                 | Pop  (x, (mu, s), _, _) 
                 | Noop (x, (mu, s))       ->
                     let qpr = { State = qp; Store = r } :> State
-                    let suppMu = moveSupp mu
+                    let suppMu = Move.supp mu
                     let domS = Map.domain s
                     let domR = Map.domain r
-                    let zStore = trim s (Set.union suppMu (Set.difference domS (Set.union x domR)))
-                    let z = storeSupp zStore
+                    let zStore = Store.trim s (Set.union suppMu (Set.difference domS (Set.union x domR)))
+                    let z = Store.supp zStore
                     let s' = Map.restrict s z
                     let r' = Map.difference s s'
                     let x' = Set.intersect (Set.union x domR) z
@@ -380,7 +238,7 @@ module Automata =
       
 
 
-  let rec fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: SymStore) : Automaton =
+  let rec fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: Store) : Automaton =
     match cn with
     | NullR -> twoStateAuto (ValM Nul, s)
     | Var x -> 
@@ -395,12 +253,11 @@ module Automata =
     | Let (_, Assn (x,f,y), c) ->
         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv x g]
         let (ValM (Reg rj')) = mu.[Types.getPosInTyEnv y g]
-        let newStore = updStore s rk' f (Reg rj')
-        let trimmedStore = trim newStore (muSupp mu)
+        let newStore = Store.update s rk' f (Reg rj')
+        let trimmedStore = Store.trim newStore (muSupp mu)
         let cAuto = fromCanon d g c mu trimmedStore
         let q0 = newState ()
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, Map.domain trimmedStore, cAuto.InitS)
         {
@@ -416,8 +273,7 @@ module Automata =
         let mu' = List.append mu  [ValM Nul]
         let g' = List.append g [(x, ty)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -433,8 +289,7 @@ module Automata =
         let mu' = List.append mu  [ValM (Num i)]
         let g' = List.append g [(x, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -448,10 +303,9 @@ module Automata =
      | Let (x, Skip, c) ->
         let q0 = newState ()
         let mu' = List.append mu  [ValM Star]
-        let g' = List.append g [(x, Void)]
+        let g' = List.append g [(x, Ty.Void)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner 
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -469,8 +323,7 @@ module Automata =
         let mu' = List.append mu  [ValM (Num (yval + zval))]
         let g' = List.append g [(x, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -489,8 +342,7 @@ module Automata =
         let mu' = List.append mu  [ValM (Num cmp)]
         let g' = List.append g [(y, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -509,9 +361,10 @@ module Automata =
            fromCanon d g c mu' s
          else
            let q0 = newState ()
+           let owner = Map.singleton q0 P 
            {
              States = [q0]
-             Owner = fun _ -> P
+             Owner = owner
              InitS = q0
              TransRel = []
              InitR = Map.domainList s
@@ -526,8 +379,7 @@ module Automata =
         let mu' = List.append mu  [ValM v]
         let g' = List.append g [(y, ty)]
         let cAuto = fromCanon d g' c mu' s
-        let owner q =
-          if q = q0 then P else cAuto.Owner q 
+        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -554,7 +406,7 @@ module Automata =
         let calltr = LabelT (q0, l, q1)
 
         let states0 = [q0; q1]
-        let owner0 q = if q=q0 then P else O
+        let owner0 = Map.singleton q0 P
         let trel0 = [calltr]
         let final0 = []
         let initS0 = q0
@@ -565,11 +417,12 @@ module Automata =
           let newrs = Map.domain st
           let nuX = Set.difference newrs oldrs
           (nuX, newrs)
+
         match xty with
           | Void ->
               let z0 = muSupp mu
-              let allStores = stores d Map.empty s z0
-              let folder (states, owner, trel, final) s0' =
+              let allStores = Store.stores d Map.empty s z0
+              let folder (states, owner: Map<State,Player>, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let mu' = List.append mu [ValM Star]
                 let g'  = List.append g [(x, xty)]
@@ -578,9 +431,8 @@ module Automata =
                 let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Star), s0')), q')
                 let ret2 = SetT (q', rY, autoc.InitS)
                 let states' = q' :: states @ autoc.States
-                let owner' q =  // owner should really be a Map
-                  if q=q' then P
-                  else if List.contains q states then (owner q) else (autoc.Owner q)
+                let owner' =
+                  Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner.[k] else v) autoc.Owner
                 let trel' = [ret1; ret2] @ trel @ autoc.TransRel
                 let final' = final @ autoc.Final
                 (states', owner', trel', final')
@@ -596,10 +448,10 @@ module Automata =
           | Iface i ->
               let z0 = muSupp mu
               let domS = Map.domain s
-              let rj's = (nextReg domS) :: Set.toList domS
-              let rj'folder (states', owner', trel', final') rj' =
+              let rj's = (Store.nextReg domS) :: Set.toList domS
+              let rj'folder (states', owner': Map<State,Player>, trel', final') rj' =
                 let z0' = Set.add rj' z0 
-                let allStores = stores d Map.empty s z0'
+                let allStores = Store.stores d Map.empty s z0'
                 let mu' = List.append mu [ValM (Reg rj')]
                 let g'  = List.append g [(x, xty)]
                 let s0'folder (states, owner, trel, final) s0' =
@@ -609,9 +461,7 @@ module Automata =
                   let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Reg rj'), s0')), q')
                   let ret2 = SetT (q', rY, autoc.InitS)
                   let states'' = q' :: states @ autoc.States
-                  let owner'' q =  // owner should really be a Map
-                    if q=q' then P
-                    else if List.contains q states then (owner q) else (autoc.Owner q)
+                  let owner'' = Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner'.[k] else v) autoc.Owner
                   let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
                   let final'' = final @ autoc.Final
                   (states'', owner'', trel'', final'')
@@ -629,10 +479,10 @@ module Automata =
           | Int ->
               let z0 = muSupp mu
               let domS = Map.domain s
-              let allStores = stores d Map.empty s z0
+              let allStores = Store.stores d Map.empty s z0
               let s0'folder (states, owner, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
-                let jfolder (states', owner', trel', final') j =
+                let jfolder (states', owner': Map<State,Player>, trel', final') j =
                   let mu' = List.append mu [ValM (Num j)]
                   let g'  = List.append g [(x, xty)]
                   let autoc = fromCanon d g' c mu' s0'
@@ -640,9 +490,8 @@ module Automata =
                   let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Num j), s0')), q')
                   let ret2 = SetT (q', rY, autoc.InitS)
                   let states'' = q' :: states @ autoc.States
-                  let owner'' q =  // owner should really be a Map
-                    if q=q' then P
-                    else if List.contains q states then (owner q) else (autoc.Owner q)
+                  let owner'' =
+                    Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner'.[k] else v) autoc.Owner
                   let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
                   let final'' = final @ autoc.Final
                   (states'', owner'', trel'', final'')
@@ -658,11 +507,11 @@ module Automata =
                 InitR = initR0
                 Final = final
               }
-     | Let (_, While (r, c1), c2) -> 
-         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv r g]
-         if (snd s.[rk']).["val"] = Num 0 then
-           fromCanon d g c2 mu s
-         else
+//     | Let (_, While (r, c1), c2) -> 
+//         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv r g]
+//         if (snd s.[rk']).["val"] = Num 0 then
+//           fromCanon d g c2 mu s
+//         else
            
 
 //  and fromCanLet (d: TyEnv) (g: ITbl) (c: CanLet) (l: Label) : Automaton =

@@ -40,6 +40,26 @@ type ITbl = Map<IntId, ITblDfn>
 
 type TyEnv = List<Ident * Ty>
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module TyEnv =
+  
+  let lookup (x: Ident) (e: TyEnv) : Option<Ty> =
+    Option.map snd (List.tryFind (fun (y,_) -> y = x) e)
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module ITbl =
+  
+  let rec methods (t: ITbl) (i: IntId) : List<MethId * List<Ty> * Ty> =
+    match Map.tryFind i t with
+    | None -> failwith "Did not find interface %O in table %O." i t
+    | Some tbd ->
+        let m, ext = 
+          match tbd with
+          | Eqn m -> (m, [])
+          | Ext (j, m) -> (m, methods t j)
+        let ss = Map.fold (fun ss s dfn -> match dfn with IMth (tys,ty) -> (s,tys,ty)::ss | _ -> ss) [] m
+        ext @ ss
+
 module Types =
   
   let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
