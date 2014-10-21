@@ -34,7 +34,12 @@ module Store =
     let getOuterVals acc r (i,m) =
       Map.fold (getInnerVals i) (Set.add (r, i) acc) m
     Map.fold getOuterVals Set.empty s
-   
+
+  /// Given a store `s`, `splitSupp s` is the pair of
+  /// sets of registers `(xs, ys)`, where `xs` is just
+  /// the domain of `s` and `ys` is all those registers
+  /// that occur in values stored in fields that are in
+  /// the codomain of `s`.
   let splitSupp (s: Store) : Set<RegId> * Set<RegId> =
     let getInnerVals acc f v =
       match v with
