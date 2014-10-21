@@ -59,7 +59,7 @@ type Automaton =
    TransRel : List<Transition>
    InitR : List<RegId>
    Final : List<State>
-   Rank : Map<State,SymStore>
+   Rank : Map<State,Store>
  }
 
 module Automata = 
@@ -107,7 +107,7 @@ module Automata =
     do stateCount := !stateCount + 1
     { Val = !stateCount } :> State
 
-  let twoStateAuto (l: Label) (s0: SymStore) (sF: SymStore) : Automaton =
+  let twoStateAuto (l: Label) (s0: Store) (sF: Store) : Automaton =
     let q0 = newState ()
     let qF = newState ()
     let owner = Map.ofList [(q0, P); (qF, O)]
@@ -136,7 +136,9 @@ module Automata =
         let folder (ts', rs', fs') (r: Store) =
           let mkTransFromTrans (acc: Set<Transition>, newrs: Set<Store>) (t: Transition) : Set<Transition> * Set<Store> = 
             let domR = Map.domain r
-            let inQ' q r = (Map.isSubset r a.Rank.[q]) && Set.isEmpty (Set.intersect domR (Map.codomain (Map.difference a.Rank.[q] r)))
+            let inQ' q r = 
+              let _, cod = Store.splitSupp (Map.difference a.Rank.[q] r)
+              (Map.isSubset r a.Rank.[q]) && Set.isEmpty (Set.intersect domR cod)
             match t with
             | SetT (qo, x, qo') when a.Owner.[qo] = O && (inQ' qo r) ->
                 if Set.isSubset domR x
@@ -173,7 +175,7 @@ module Automata =
                     let sMinusR = Map.difference s r
                     let suppMu = Move.supp mu
                     let b1 = Map.isSubset r s
-                    let notInDomR = Set.unionMany [x; suppMu; (Map.codomain sMinusR)]
+                    let notInDomR = Set.unionMany [x; suppMu; (snd (Store.splitSupp sMinusR))]
                     let b2 = Set.isEmpty (Set.intersect domR notInDomR)
                     // let b2 = Set.isEmpty (Set.intersect x domR)
                     // let b3 =
@@ -275,7 +277,8 @@ module Automata =
         let trimmedStore = Store.trim newStore (muSupp mu)
         let cAuto = fromCanon d g c mu trimmedStore
         let q0 = newState ()
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, Map.domain trimmedStore, cAuto.InitS)
         {
@@ -285,13 +288,15 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = Map.domainList s
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (x, NullL ty, c) ->
         let q0 = newState ()
         let mu' = List.append mu  [ValM Nul]
         let g' = List.append g [(x, ty)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -301,13 +306,15 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (x, CanLet.Num i, c) ->
         let q0 = newState ()
         let mu' = List.append mu  [ValM (Num i)]
         let g' = List.append g [(x, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -317,13 +324,15 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (x, Skip, c) ->
         let q0 = newState ()
         let mu' = List.append mu  [ValM Star]
         let g' = List.append g [(x, Ty.Void)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner 
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -333,6 +342,7 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         } 
      | Let (x, Plus (y,z), c) ->
         let q0 = newState ()
@@ -341,7 +351,8 @@ module Automata =
         let mu' = List.append mu  [ValM (Num (yval + zval))]
         let g' = List.append g [(x, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -351,6 +362,7 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (y, Eq (x1, x2), c) -> 
         let q0 = newState ()
@@ -360,7 +372,8 @@ module Automata =
         let mu' = List.append mu  [ValM (Num cmp)]
         let g' = List.append g [(y, Int)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -370,6 +383,7 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (y, Cast (i, x), c) ->
          let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv x g]
@@ -380,6 +394,7 @@ module Automata =
          else
            let q0 = newState ()
            let owner = Map.singleton q0 P 
+           let rank = Map.singleton q0 s
            {
              States = [q0]
              Owner = owner
@@ -387,6 +402,7 @@ module Automata =
              TransRel = []
              InitR = Map.domainList s
              Final = []
+             Rank = rank
            }
      | Let (y, Fld (x,f), c) -> 
         let q0 = newState ()
@@ -397,7 +413,8 @@ module Automata =
         let mu' = List.append mu  [ValM v]
         let g' = List.append g [(y, ty)]
         let cAuto = fromCanon d g' c mu' s
-        let owner = Map.updateOrDefault q0 (fun _ -> P) P cAuto.Owner
+        let owner = Map.add q0 P cAuto.Owner 
+        let rank = Map.add q0 s cAuto.Rank
         let trans = 
           SetT (q0, set cAuto.InitR, cAuto.InitS)
         {
@@ -407,6 +424,7 @@ module Automata =
           TransRel = trans :: cAuto.TransRel
           InitR = cAuto.InitR
           Final = cAuto.Final
+          Rank = rank
         }
      | Let (x, CanLet.Call (y,m,zs), c) ->
         let (Iface yi) = Types.getTyfromTyEnv y g
@@ -424,7 +442,8 @@ module Automata =
         let calltr = LabelT (q0, l, q1)
 
         let states0 = [q0; q1]
-        let owner0 = Map.singleton q0 P
+        let owner0 = Map.singleton q0 P  /// What about q1?
+        let rank0 = Map.ofList [(q0, s); (q1, s)]
         let trel0 = [calltr]
         let final0 = []
         let initS0 = q0
@@ -440,7 +459,7 @@ module Automata =
           | Void ->
               let z0 = muSupp mu
               let allStores = Store.stores d Map.empty s z0
-              let folder (states, owner: Map<State,Player>, trel, final) s0' =
+              let folder (states, owner: Map<State,Player>, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let mu' = List.append mu [ValM Star]
                 let g'  = List.append g [(x, xty)]
@@ -449,12 +468,12 @@ module Automata =
                 let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Star), s0')), q')
                 let ret2 = SetT (q', rY, autoc.InitS)
                 let states' = q' :: states @ autoc.States
-                let owner' =
-                  Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner.[k] else v) autoc.Owner
+                let owner' = Map.union (Map.add q' P owner) autoc.Owner 
+                let rank' = Map.union (Map.add q' s0' rank) autoc.Rank
                 let trel' = [ret1; ret2] @ trel @ autoc.TransRel
                 let final' = final @ autoc.Final
-                (states', owner', trel', final')
-              let (states, owner, trel, final) = List.fold folder (states0, owner0, trel0, final0) allStores 
+                (states', owner', rank', trel', final')
+              let (states, owner, rank, trel, final) = List.fold folder (states0, owner0, rank0, trel0, final0) allStores 
               {
                 States = states
                 Owner = owner
@@ -462,30 +481,32 @@ module Automata =
                 TransRel = trel
                 InitR = initR0
                 Final = final
+                Rank = rank
               }
           | Iface i ->
               let z0 = muSupp mu
               let domS = Map.domain s
               let rj's = (Store.nextReg domS) :: Set.toList domS
-              let rj'folder (states', owner': Map<State,Player>, trel', final') rj' =
+              let rj'folder (states', owner', rank', trel', final') rj' =
                 let z0' = Set.add rj' z0 
                 let allStores = Store.stores d Map.empty s z0'
                 let mu' = List.append mu [ValM (Reg rj')]
                 let g'  = List.append g [(x, xty)]
-                let s0'folder (states, owner, trel, final) s0' =
+                let s0'folder (states, owner, rank, trel, final) s0' =
                   let (nuX, rY) = getPair s0'
                   let autoc = fromCanon d g' c mu' s0'
                   let q' = newState ()
                   let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Reg rj'), s0')), q')
                   let ret2 = SetT (q', rY, autoc.InitS)
                   let states'' = q' :: states @ autoc.States
-                  let owner'' = Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner'.[k] else v) autoc.Owner
+                  let owner'' = Map.union (Map.add q' P owner) autoc.Owner
+                  let rank'' = Map.union (Map.add q' s0' rank) autoc.Rank
                   let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
                   let final'' = final @ autoc.Final
-                  (states'', owner'', trel'', final'')
-                let (states, owner, trel, final) = List.fold s0'folder (states', owner', trel', final') allStores 
-                (states, owner, trel, final)
-              let (states, owner, trel, final) = List.fold rj'folder (states0, owner0, trel0, final0) rj's
+                  (states'', owner'', rank'', trel'', final'')
+                let (states, owner, rank, trel, final) = List.fold s0'folder (states', owner', rank', trel', final') allStores 
+                (states, owner, rank, trel, final)
+              let (states, owner, rank, trel, final) = List.fold rj'folder (states0, owner0, rank0, trel0, final0) rj's
               {
                 States = states
                 Owner = owner
@@ -493,14 +514,15 @@ module Automata =
                 TransRel = trel
                 InitR = initR0
                 Final = final
+                Rank = rank
               }  
           | Int ->
               let z0 = muSupp mu
               let domS = Map.domain s
               let allStores = Store.stores d Map.empty s z0
-              let s0'folder (states, owner, trel, final) s0' =
+              let s0'folder (states, owner, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
-                let jfolder (states', owner': Map<State,Player>, trel', final') j =
+                let jfolder (states', owner', rank', trel', final') j =
                   let mu' = List.append mu [ValM (Num j)]
                   let g'  = List.append g [(x, xty)]
                   let autoc = fromCanon d g' c mu' s0'
@@ -508,15 +530,15 @@ module Automata =
                   let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,Num j), s0')), q')
                   let ret2 = SetT (q', rY, autoc.InitS)
                   let states'' = q' :: states @ autoc.States
-                  let owner'' =
-                    Map.map (fun (k: State) v -> if k = q' then P elif List.contains k states then owner'.[k] else v) autoc.Owner
+                  let owner'' = Map.union (Map.add q' P owner') autoc.Owner 
+                  let rank'' = Map.union (Map.add q' s0' rank') autoc.Rank
                   let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
                   let final'' = final @ autoc.Final
-                  (states'', owner'', trel'', final'')
+                  (states'', owner'', rank'', trel'', final'')
                 let js = [0..maxint]
-                let (states', owner', trel', final') = List.fold jfolder (states, owner, trel, final) js
-                (states', owner', trel', final')
-              let (states, owner, trel, final) = List.fold s0'folder (states0, owner0, trel0, final0) allStores
+                let (states', owner', rank', trel', final') = List.fold jfolder (states, owner, rank, trel, final) js
+                (states', owner', rank', trel', final')
+              let (states, owner, rank, trel, final) = List.fold s0'folder (states0, owner0, rank0, trel0, final0) allStores
               {
                 States = states
                 Owner = owner
@@ -524,6 +546,7 @@ module Automata =
                 TransRel = trel
                 InitR = initR0
                 Final = final
+                Rank = rank
               }
 //     | Let (_, While (r, c1), c2) -> 
 //         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv r g]
