@@ -18,3 +18,13 @@ let term (fn: String) (s: String) : Term = parse fn Parser.Term s
 /// and text to be parsed `s`, `itbl fn s` is the interface table 
 /// resulting from parsing `s` or an exception.
 let itbl (fn: String) (s: String) : ITbl = parse fn Parser.ITbl s
+
+/// Given a file name `fn` (for error reporting purposes only) 
+/// and text to be parsed `s`, `tyenv fn s` is the type environment 
+/// resulting from parsing `s` or an exception.
+let tyenv (fn: String) (s: String) : TyEnv = parse fn Parser.TyEnv s
+
+/// Given a file name `fn` (for error reporting purposes only) 
+/// and text to be parsed `s`, `tyenv fn s` is the type environment 
+/// resulting from parsing `s` or an exception.
+let tytm (fn: String) (s: String) : TyEnv * Term = parse fn Parser.TyTerm s

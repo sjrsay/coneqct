@@ -5,7 +5,9 @@ open System
 // Constants
 
 let buildDir = "./bin/"
-let testAssemblies = "./tests/**/bin/Debug/*Tests.dll*"
+let testAssemblies = "./bin/*Tests.dll"
+//let testAssemblies = "./tests/**/bin/Debug/*Tests.dll"
+//let testBinDirs = "./tests/**/bin/"
 let solutionFile = "./IMJEquiv.sln"
 
 // Targets
@@ -28,13 +30,14 @@ Target "RunTests" (fun _ ->
       { p with
           DisableShadowCopy = true
           TimeOut = TimeSpan.FromMinutes 20.
-          OutputFile = "TestResults.xml" })
+          OutputFile = "TestResults.xml" 
+          Framework = "net-4.5"
+      })
 )
 
 // Dependencies
 
-"Clean"
-  ==> "Restore"
+"Restore"
   ==> "Build"
   ==> "RunTests"
 

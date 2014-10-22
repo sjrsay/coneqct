@@ -19,10 +19,10 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 
 %}
 
-%start Term ITbl
+%start Term ITbl TyEnv TyTerm
 
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT
-%token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF  
+%token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE 
 %token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
 %token <String> ID IID
 %token <Int32> NUM
@@ -35,6 +35,8 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 
 %type <Term> Term
 %type <ITbl> ITbl
+%type <TyEnv> TyEnv
+%type <TyEnv * Term> TyTerm
 
 %%
 
@@ -153,6 +155,14 @@ ITbl:
 ITbl1:
   | ITblDfn                                         { Map.singleton (fst $1) (snd $1) }
   | ITblDfn COMMA ITbl1                             { Map.add (fst $1) (snd $1) $3 }
+
+TyEnv:
+  |                                                 { [] }
+  | ID COLON Type                                   { [($1, $3)] }
+  | ID COLON Type COMMA TyEnv                       { ($1, $3) :: $5 }
+
+TyTerm:
+  | TyEnv TSTYLE Term                               { ($1, $3) }
 
 Recover:
   | error                                           { true }
