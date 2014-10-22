@@ -53,6 +53,7 @@ rule tokenizeMain =
 	| '.'		      { STOP }
 	| ','             { COMMA }
 	| ":="            { ASSN }
+	| "|-"            { TSTYLE }
 	| ':'             { COLON }
 	| ';'             { SEMICOLON }
 	| '\\'            { BACKSLASH }

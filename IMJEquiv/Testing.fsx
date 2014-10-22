@@ -22,6 +22,10 @@ let pitbl t =
   try Parsing.itbl "" t with
   | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
 
+let ptyenv t = 
+  try Parsing.tyenv "" t with
+  | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
+
 pterm "3 + 4"
 pterm "x := 3 + 4"
 pterm "let x = 2 + 4 in x"
@@ -43,5 +47,7 @@ pitbl "I = { f : void -> void }"
 pitbl "I<J> = { m : (void, int) -> int, f : void -> void }, J = { f : void }"
 let d = pitbl "I = {}, J = { m1: I -> void }, K<J> = {}, L<K> = { f: int }"
 Types.subtype d "L" "J" // should be true
+
+ptyenv "x : int, y : void, z : I"
 
 Canonical.subCanLet ("x", "z") (Plus ("x", "y"))  
