@@ -1,6 +1,10 @@
 ^IMJEquiv/bin
 ^IMJEquiv/obj
+^tests/IMJEquivTests/bin
+^tests/IMJEquivTests/obj
+^bin
 ^packages
+^TestResults.xml
 
 syntax: glob
 *.suo
