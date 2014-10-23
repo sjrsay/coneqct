@@ -90,8 +90,10 @@ module Canonical =
     "x" + (!idCnt).ToString ()
 
   let subIdent (x: Ident, y: Ident) (z: Ident) : Ident =
-    if x = z then y else x
+    if y = z then x else z
 
+  /// Given a single variable renaming `(y, x)` and a canonical 
+  /// form `c`, `subst (y, x) c` is `c[y/x]`.
   let rec subst (sub: Ident * Ident) (c: Canon) : Canon =
     match c with
     | NullR -> c  
