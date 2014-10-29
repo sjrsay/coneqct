@@ -31,7 +31,6 @@ Target "RunTests" (fun _ ->
           DisableShadowCopy = true
           TimeOut = TimeSpan.FromMinutes 20.
           OutputFile = "TestResults.xml" 
-          Framework = "net-4.5"
       })
 )
 
