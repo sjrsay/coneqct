@@ -256,9 +256,20 @@ module Automata =
       Rank = rank
     }
       
-
+  let isFinalTrans (a: Automaton) (t: Transition) : Bool =
+    match t with
+    | SetT   (_,_,q)
+    | LabelT (_,_,q)
+    | PermT  (_,_,q) -> List.contains q a.Final
+  
+  let getSecondState (t: Transition) : State =
+    match t with
+    | SetT (_,_,q)
+    | PermT (_,_,q)
+    | LabelT (_,_,q) -> q
 
   let rec fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: Store) : Automaton =
+    let x0 = Map.domain s
     match cn with
     | NullR -> twoStateAuto (ValM Nul, s) s s
     | Var x -> 
@@ -442,7 +453,7 @@ module Automata =
         let calltr = LabelT (q0, l, q1)
 
         let states0 = [q0; q1]
-        let owner0 = Map.singleton q0 P  /// What about q1?
+        let owner0 = Map.ofList [(q0, P); (q1, O)]
         let rank0 = Map.ofList [(q0, s); (q1, s)]
         let trel0 = [calltr]
         let final0 = []
@@ -548,12 +559,70 @@ module Automata =
                 Final = final
                 Rank = rank
               }
-//     | Let (_, While (r, c1), c2) -> 
-//         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv r g]
-//         if (snd s.[rk']).["val"] = Num 0 then
-//           fromCanon d g c2 mu s
-//         else
-           
+     | Let (_, While (r, c1), c2) -> 
+         let (ValM (Reg rk')) = mu.[Types.getPosInTyEnv r g]
+         if (snd s.[rk']).["val"] = Num 0 then
+           fromCanon d g c2 mu s
+         else
+           let z0 = muSupp mu
+           let allStores = Store.stores d Map.empty s z0
+           let mkNuC c s1 =
+             let c'  = fromCanon d g c mu s1
+             nu d c' Map.empty 
+           let c1s = List.fold (fun c1s str -> Map.add str (mkNuC c1 str) c1s) Map.empty allStores
+           let c2s = List.fold (fun c2s str -> Map.add str (mkNuC c2 str) c2s) Map.empty allStores
+           let mkTuple (qs, nfts, fts) (a: Automaton) =
+             let nfts', fts' = List.partition (isFinalTrans a) a.TransRel
+             (qs @ a.States, nfts @ nfts', fts @ fts')
+           let c1sStates, c1sTrans, c1sFinals = Set.fold mkTuple ([],[],[]) (Map.codomain c1s)
+           let c2sStates, c2sTrans, c2sFinals = Set.fold mkTuple ([],[],[]) (Map.codomain c2s)
+           let newC1sTrans = ref c1sTrans
+           for t in c1sFinals do
+              match t with
+              | SetT _ 
+              | PermT _ -> failwith "Expected labelled transition as final"
+              | LabelT (p, l, p') ->
+                match p with
+                | :? PairState as ps ->
+                    match p' with
+                    | :? PairState as ps' -> 
+                        let r  = ps.Store
+                        let r' = ps'.Store
+                        let q  = ps.State
+                        match l with
+                        | Noop (x, (ValM Star, s')) -> 
+                            let s1' = Store.trim (Map.union s' r') z0
+                            let z1  = Map.domain s1'
+                            let z1' = Set.intersect (Set.union (Map.domain r) x) z1
+                            let r'' = Map.filter (fun k _ -> Set.contains k z1') s1'
+                            let targetState = 
+                              if (snd s.[rk']).["val"] = Num 0 then
+                                c2s.[s1'].InitS
+                              else
+                                c1s.[s1'].InitS
+                            let newTrans = SetT (ps, Set.difference z1 (Map.domain r''), targetState)
+                            newC1sTrans := newTrans :: !newC1sTrans
+                        | _ -> failwith "Expected noop with star label"
+                    | _ -> failwith "Expected pair state from nu construction"
+                | _ -> failwith "Expected pair state from nu construction"
+           let aStates = c1sStates @ c2sStates
+           let iState  = c1s.[s].InitS
+           let fStates = Set.toList <| List.fold (fun xs t -> Set.add (getSecondState t) xs) Set.empty c2sFinals
+           let transs  = c2sTrans @ c2sFinals @ !newC1sTrans
+           let owner   = Map.fold (fun owner _ (a:Automaton) -> Map.union a.Owner owner) Map.empty c1s
+           let owner'  = Map.fold (fun owner' _ (a:Automaton) -> Map.union a.Owner owner') owner c2s
+           let rank   = Map.fold (fun rank _ (a:Automaton) -> Map.union a.Rank rank) Map.empty c1s
+           let rank'  = Map.fold (fun rank' _ (a:Automaton) -> Map.union a.Rank rank') rank c2s
+           {
+             States   = aStates
+             Owner    = owner'
+             InitS    = iState
+             TransRel = transs
+             Rank     = rank'
+             Final    = fStates
+             InitR    = Set.toList x0
+           }
+    
 
 //  and fromCanLet (d: TyEnv) (g: ITbl) (c: CanLet) (l: Label) : Automaton =
 //    match c with
