@@ -107,11 +107,12 @@ module Store =
                 let choices = fresh :: sFilteredSupp @ s0'FilteredSupp
                 for x in choices do
                   let s' = Map.update r (fun (i, m) -> (i, Map.add f (Reg x) m)) s
-                  let s0'' = Map.remove x s0'
+                  let s0'' = Map.remove x s0'  // Maybe this is just for efficiency
                   let ss = vals d rs fs' s' s0''
                   acc := List.append ss !acc
                 !acc
 
+  // s is an accumulator
   let rec stores (d: ITbl) (s: Store) (s0: Store) (z: Set<RegId>) : List<Store> =
     let freeRegs = Set.toList (Set.difference z (Map.domain s))
     let acc = ref []
