@@ -56,6 +56,7 @@
     <Compile Include="Helpers.fs" />
     <Compile Include="SyntaxTests.fs" />
     <Compile Include="CanonicalTests.fs" />
+    <Compile Include="StoreTests.fs" />
     <None Include="Quick.fsx" />
     <None Include="packages.config" />
     <Content Include="app.config" />

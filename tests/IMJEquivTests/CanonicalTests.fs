@@ -47,6 +47,6 @@ let ``complex additions require lemma 34`` () =
 let ``canonical form of null equals x`` () =
   let tyEnv, tm = ptytm "x:I |- null = x"
   let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
-  let expected = ptm "let y = null in let z = (null = x) in z"
+  let expected = ptm "let y = null in let z = x = y in z"
   AssertAlphaEqual (expected, result)
 

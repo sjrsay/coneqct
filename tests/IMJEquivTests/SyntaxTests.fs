@@ -51,5 +51,10 @@ let ``sometimes news are not alpha equiv`` () =
   let result = Term.alphaEq s t
   Assert.AreEqual (false, result)
 
-
+[<Test>]
+let ``problematic let with null`` () =
+  let s = ptm @"let x = null = y in x"
+  let t = ptm @"let z = null = y in z"
+  let result = Term.alphaEq s t
+  Assert.AreEqual (true, result)
 
