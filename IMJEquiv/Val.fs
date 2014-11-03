@@ -4,10 +4,10 @@ open IMJEquiv
 type RegId = Int32
 
 type Val =
-  | Num of Int32
-  | Star
-  | Nul
-  | Reg of RegId
+  | VNum of Int32
+  | VStar
+  | VNul
+  | VReg of RegId
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Val =
@@ -16,12 +16,12 @@ module Val =
 
   let supp (v: Val) : Set<RegId> =
     match v with
-    | Num _ 
-    | Star 
-    | Nul    -> Set.empty
-    | Reg r  -> Set.singleton r 
+    | VNum _ 
+    | VStar 
+    | VNul    -> Set.empty
+    | VReg r  -> Set.singleton r 
 
   let permute (p: Perm<RegId>) (v: Val) : Val =
     match v with
-    | Reg r -> Reg p.[r]
-    | _     -> v
+    | VReg r -> VReg p.[r]
+    | _      -> v
