@@ -28,3 +28,8 @@ let tyenv (fn: String) (s: String) : TyEnv = parse fn Parser.TyEnv s
 /// and text to be parsed `s`, `tyenv fn s` is the type environment 
 /// resulting from parsing `s` or an exception.
 let tytm (fn: String) (s: String) : TyEnv * Term = parse fn Parser.TyTerm s
+
+/// Given a file name `fn` (for error reporting purposes only) 
+/// and text to be parsed `s`, `store fn s` is the store 
+/// resulting from parsing `s` or an exception.
+let store (fn: String) (s: String) : Store = parse fn Parser.Store s

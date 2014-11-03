@@ -58,9 +58,6 @@
     </FsLex>
     <Compile Include="Types.fs" />
     <Compile Include="Syntax.fs" />
-    <Compile Include="Parser.fs" />
-    <Compile Include="Lexer.fs" />
-    <Compile Include="Parsing.fs" />
     <Compile Include="TyCheck.fs" />
     <Compile Include="Canonical.fs" />
     <Compile Include="Perm.fs" />
@@ -68,6 +65,9 @@
     <Compile Include="Move.fs" />
     <Compile Include="Store.fs" />
     <Compile Include="Automata.fs" />
+    <Compile Include="Parser.fs" />
+    <Compile Include="Lexer.fs" />
+    <Compile Include="Parsing.fs" />
     <Compile Include="Program.fs" />
     <None Include="Testing.fsx" />
     <None Include="App.config" />
