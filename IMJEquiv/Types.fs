@@ -60,6 +60,17 @@ module ITbl =
         let ss = Map.fold (fun ss s dfn -> match dfn with IMth (tys,ty) -> (s,tys,ty)::ss | _ -> ss) [] m
         ext @ ss
 
+  let rec fields (t: ITbl) (i: IntId) : List<FldId * Ty> =
+    match Map.tryFind i t with
+    | None -> failwith "Did not find interface %O in table %O." i t
+    | Some tbd ->
+        let m, ext = 
+          match tbd with
+          | Eqn m -> (m, [])
+          | Ext (j, m) -> (m, fields t j)
+        let ss = Map.fold (fun ss s dfn -> match dfn with IFld ty -> (s,ty)::ss | _ -> ss) [] m
+        ext @ ss
+
 module Types =
   
   let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
