@@ -66,10 +66,6 @@ module Store =
     let supp = fix rs
     Map.filter (fun r _ -> Set.contains r supp) s
 
-  let fields (s: Store) (r: RegId) : IntId * List<FldId> =
-    let i, m = s.[r]
-    (i, Map.domainList m)
-
   let nextReg (rs: Set<RegId>) : RegId =
     let n = ref 1
     while Set.contains !n rs do
@@ -82,20 +78,28 @@ module Store =
       n := !n + 1
     !n
 
+  /// Given a store `s` and register id `r` such that
+  /// `r` is in `dom(s)`, `tyOfReg s r` is the interface
+  /// type of `r` according to `s`.
+  let tyOfReg (s: Store) (r: RegId) : IntId =
+    match Map.tryFind r s with
+    | None -> failwith "Expected register %A in domain of store %A." r s
+    | Some (i, _) -> i
+
   ///
   /// This is a private helper function for `stores` which follows this definition.
   ///
-  /// Given an interface table `d`, a list of registers `rs` a list of fields `fs` and a store `s` and set of
-  /// typed registers `s0Names` such that the following holds:
+  /// Given an integer `n`, an interface table `d`, a list of registers `rs` a list of fields `fs` 
+  /// and a store `s` and set of typed registers `s0Names` such that the following holds:
   ///
   ///   1. If `fs` is non-empty then `rs` is of the form `r'::rs'` and `r'` is in the domain of `s`, but
   ///      it is mapped to a field table which is missing entries for exactly fields in `fs`.
   ///   2. The intersection of `supp s` and `s0Names` is empty (mod types in the latter).
   ///
-  /// then `vals d rs fs s s0'` is a list of all possible stores arising from, for each `r` in `rs` 
-  /// mapping `r` to nondeterministically chosen field values in `s`.  
+  /// then `vals n d rs fs s s0'` is a list of all possible stores arising from, for each `r` in `rs` 
+  /// mapping `r` to nondeterministically chosen field values in `s` with integers ranging from `0` to `n`.  
   ///
-  /// For a field of type int, values range over `[0..Val.maxint]`.  For a field of interface type, values
+  /// For a field of type int, values range over `[0..n]`.  For a field of interface type, values
   /// can be either: a fresh register id (not occurring in either `supp s` or `s0Names`), a register id 
   /// of the correct type already in `s` or a register id of the correct type from `s0Names`.
   ///
@@ -103,31 +107,30 @@ module Store =
   /// chosen twice by being picked once from `s0Names` and once from `supp s`.  Hence, it allows combining 
   /// `supp s` and `s0Names` into a list rather than a set.
   ///
-  let rec private vals (d: ITbl) (rs: List<RegId>) (fs: List<FldId>) (s: Store) (s0Names: Set<RegId * IntId>) : List<Store> =
+  let rec private vals (n: Int) (d: ITbl) (rs: List<RegId * IntId>) (fs: List<FldId * Ty>) (s: Store) (s0Names: Set<RegId * IntId>) : List<Store> =
     match rs with
     | [] -> [s]
-    | r::rs' ->
+    | (r,i)::rs' ->
         match fs with
         | [] -> 
             match rs' with
             | [] -> [s]
-            | r'::rs'' ->
-                let i, fs = fields s r'
-                let s' = Map.add r' (i, Map.empty) s
-                vals d rs' fs s' s0Names
-        | f::fs' ->
+            | (r',j)::rs'' ->
+                let fs = ITbl.fields d j
+                let s' = Map.add r' (j, Map.empty) s
+                vals n d rs' fs s' s0Names
+        | (f, ty)::fs' ->
             let acc = ref []
-            let rIface = fst s.[r]
-            match Types.ofFld d rIface f with
+            match ty with
             | Ty.Int ->
-                for x in [0..Val.maxint] do
+                for x in [0..n] do
                   let s' = Map.update r (fun (i, m) -> (i, Map.add f (VNum x) m)) s
-                  let ss = vals d rs fs' s' s0Names
+                  let ss = vals n d rs fs' s' s0Names
                   acc := List.append ss !acc
                 !acc   
             | Ty.Void ->
                 let s' = Map.update r (fun (i, m) -> (i, Map.add f VStar m)) s
-                vals d rs fs' s' s0Names
+                vals n d rs fs' s' s0Names
             | Ty.Iface i ->
                 let sTypedSupp = tySupp d s
                 let sFilteredSupp = Set.fold (fun acc (r, j) -> if i = j then r :: acc else acc) [] sTypedSupp
@@ -139,31 +142,44 @@ module Store =
                   // We remove x from `s0Names` to ensure that `s0Names` and `supp s`
                   // are still disjoint according to constraint 2 and the note.
                   let s0Names' = Set.remove (x, i) s0Names  
-                  let ss = vals d rs fs' s' s0Names'
+                  let ss = vals n d rs fs' s' s0Names'
                   acc := List.append ss !acc
                 !acc
 
-  /// Given an interface table `d`, an initial store `s0` and a set of registers `z`,
-  /// `stores d s0 z` generates all possible stores `s` which have `dom(s)` including `z`
-  /// and values taken from `*` for fields of type `void`, `[1..maxint]` for fields of
-  /// type `int` and registers either drawn from `s0` or fresh.
-  let stores (d: ITbl) (s0: Store) (z: Set<RegId>) : List<Store> =
+  /// `stores'` is `stores` with an extra integer parameter `n` for the maximum integer range.
+  let stores' (n: Int) (d: ITbl) (s0: Store) (z: Set<RegId * IntId>) : List<Store> =
 
-    let rec storesAux (d: ITbl) (s: Store) (s0Names: Set<RegId * IntId>) (z: Set<RegId>) : List<Store> =
-      let freeRegs = Set.toList (Set.difference z (Map.domain s))
+    let rec storesAux (d: ITbl) (s: Store) (s0Names: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
+      let sDom = Map.fold (fun dom k (i,_) -> Set.add (k, i) dom) Set.empty s
+      let freeRegs = Set.toList (Set.difference z sDom)
       let acc = ref []
       match freeRegs with
       | []    -> [s]
-      | r::rs ->
-          let i, fs = fields s r
+      | (r,i)::rs ->
+          let fs = ITbl.fields d i
           let s' = Map.add r (i, Map.empty) s
           let spp = supp s'
           let s0Names' = Set.filter (fun (k, _) -> not (Set.contains k spp)) s0Names
-          for s'' in vals d freeRegs fs s' s0Names' do
-            let z' = supp s''
+          for s'' in vals n d freeRegs fs s' s0Names' do
+            let z' = tySupp d s''
             if z = z' then acc := s'' :: !acc
             else acc := !acc @ storesAux d s'' s0Names' z'
           !acc
 
     storesAux d Map.empty (tySupp d s0) z
 
+
+  ///
+  /// Given an interface table `d`, an initial store `s0` and a set of registers `z`,
+  /// such that: 
+  ///    (i) `z` is included in `dom(s0)` 
+  /// `stores d s0 z` generates all possible stores `s` which have `dom(s)` including `z` 
+  /// and values taken from `[*]` for fields of type `void`, `[1..maxint]` for fields of
+  /// type `int` and registers either drawn from `s0` or fresh.
+  ///
+  /// NOTE: the reason for (i) is that `s0` and not `z` is used to determine the 
+  /// index of the next unused register (for drawing fresh registers).
+  ///
+  let stores (d: ITbl) (s0: Store) (z: Set<RegId * IntId>) : List<Store> =
+    stores' Val.maxint d s0 z
+    
