@@ -469,7 +469,8 @@ module Automata =
         match xty with
           | Void ->
               let z0 = muSupp mu
-              let allStores = Store.stores d s z0
+              let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+              let allStores = Store.stores d s tyZ0
               let folder (states, owner: Map<State,Player>, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let mu' = List.append mu [ValM VStar]
@@ -500,7 +501,8 @@ module Automata =
               let rj's = (Store.nextReg domS) :: Set.toList domS
               let rj'folder (states', owner', rank', trel', final') rj' =
                 let z0' = Set.add rj' z0 
-                let allStores = Store.stores d s z0'
+                let tyZ0' = Set.map (fun r -> (r, Store.tyOfReg s r)) z0'
+                let allStores = Store.stores d s tyZ0'
                 let mu' = List.append mu [ValM (VReg rj')]
                 let g'  = List.append g [(x, xty)]
                 let s0'folder (states, owner, rank, trel, final) s0' =
@@ -530,7 +532,8 @@ module Automata =
           | Int ->
               let z0 = muSupp mu
               let domS = Map.domain s
-              let allStores = Store.stores d s z0
+              let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+              let allStores = Store.stores d s tyZ0
               let s0'folder (states, owner, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let jfolder (states', owner', rank', trel', final') j =
@@ -565,7 +568,8 @@ module Automata =
            fromCanon d g c2 mu s
          else
            let z0 = muSupp mu
-           let allStores = Store.stores d s z0
+           let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+           let allStores = Store.stores d s tyZ0
            let mkNuC c s1 =
              let c'  = fromCanon d g c mu s1
              nu d c' Map.empty 
