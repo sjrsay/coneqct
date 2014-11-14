@@ -186,6 +186,7 @@ Val:
   | TIMES                                           { VStar }
   | RID                                             { VReg $1 }
   | NUM                                             { VNum $1 }
+  | NULL                                            { VNul }
 
 TyEnv:
   |                                                 { [] }
