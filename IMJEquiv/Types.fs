@@ -6,6 +6,8 @@ type FldId = String
 type MethId = String
 type IntId = String
 
+type RegId = Int32
+
 [<StructuredFormatDisplayAttribute("{Show}")>]
 type Ty = 
   | Void

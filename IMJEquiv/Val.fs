@@ -1,13 +1,21 @@
 ﻿namespace IMJEquiv
 open IMJEquiv
 
-type RegId = Int32
-
+[<StructuredFormatDisplayAttribute("{Show}")>]
 type Val =
   | VNum of Int32
   | VStar
   | VNul
   | VReg of RegId
+
+  override x.ToString () : String =
+    match x with
+    | VNum n -> n.ToString()
+    | VStar  -> "*"
+    | VNul   -> "null"
+    | VReg n -> "r" + n.ToString()
+
+  member x.Show = x.ToString ()
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Val =
@@ -25,3 +33,9 @@ module Val =
     match v with
     | VReg r -> VReg p.[r]
     | _      -> v
+
+  let defaultOfTy (ty: Ty) : Val =
+    match ty with
+    | Void    -> VStar
+    | Int     -> VNum 0
+    | Iface _ -> VNul
