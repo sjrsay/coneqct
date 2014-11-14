@@ -72,11 +72,24 @@ module Store =
       n := !n + 1
     !n
 
+  let rec nextiReg (i: Int32) (rs: Set<RegId>) : Set<RegId> =
+    if i=0 then 
+      Set.empty 
+    else 
+      let r = nextReg rs
+      Set.add r (nextiReg (i-1) (Set.add r rs))
+
   let nextTypedReg (rs: Set<RegId * IntId>) : RegId =
     let n = ref 1
     while Set.exists (fun (r, _) -> r = !n) rs do
       n := !n + 1
     !n
+
+  let mkDefaultObj (d: ITbl) (i: IntId) : Map<FldId,Val> =
+    let tyFlds = ITbl.fields d i
+    let doField m (f, ty) =
+      Map.add f (Val.defaultOfTy ty) m
+    List.fold doField Map.empty tyFlds
 
   /// Given a store `s` and register id `r` such that
   /// `r` is in `dom(s)`, `tyOfReg s r` is the interface
@@ -86,7 +99,7 @@ module Store =
     | None -> failwith "Expected register %A in domain of store %A." r s
     | Some (i, _) -> i
 
-  ///
+  /// 
   /// This is a private helper function for `stores` which follows this definition.
   ///
   /// Given an integer `n`, an interface table `d`, a list of registers `rs` a list of fields `fs` 
@@ -144,10 +157,14 @@ module Store =
                   let s0Names' = Set.remove (x, i) s0Names  
                   let ss = vals n d rs fs' s' s0Names'
                   acc := List.append ss !acc
+                // One final choice is to assign `null` to the field
+                let s' = Map.update r (fun (i, m) -> (i, Map.add f VNul m)) s
+                let ss = vals n d rs fs' s' s0Names
+                acc := List.append ss !acc
                 !acc
 
   /// `stores'` is `stores` with an extra integer parameter `n` for the maximum integer range.
-  let stores' (n: Int) (d: ITbl) (s0: Store) (z: Set<RegId * IntId>) : List<Store> =
+  let stores' (n: Int) (d: ITbl) (s0: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
 
     let rec storesAux (d: ITbl) (s: Store) (s0Names: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
       let sDom = Map.fold (fun dom k (i,_) -> Set.add (k, i) dom) Set.empty s
@@ -166,7 +183,7 @@ module Store =
             else acc := !acc @ storesAux d s'' s0Names' z'
           !acc
 
-    storesAux d Map.empty (tySupp d s0) z
+    storesAux d Map.empty s0 z
 
 
   ///
@@ -180,6 +197,44 @@ module Store =
   /// NOTE: the reason for (i) is that `s0` and not `z` is used to determine the 
   /// index of the next unused register (for drawing fresh registers).
   ///
-  let stores (d: ITbl) (s0: Store) (z: Set<RegId * IntId>) : List<Store> =
+  let stores (d: ITbl) (s0: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
     stores' Val.maxint d s0 z
     
+  let alphaEq (fxd: Set<RegId>) (s: Store) (t: Store) : Option<Perm<RegId>> =
+    
+    let rec checkField (v: Val) (w: Val) (p: Perm<RegId>) : Option<Perm<RegId>> =
+      match v, w with
+      | VNum n, VNum m -> if n = m then Some p else None
+      | VStar, VStar   -> Some p
+      | VNul, VNul     -> Some p
+      | VReg a, VReg b -> aeq (a, b) p 
+      | _, _           -> None
+
+    and aeq (l: RegId, r: RegId) (p: Perm<RegId>) =
+      match Map.tryFind l p with
+      | Some r' -> if r = r' then Some p else None
+      | None ->
+          let p' = Map.add l r p
+          let lty, lflds = s.[l]
+          let rty, rflds = t.[r]
+          if lty = rty then
+            Map.fold (fun popt f v -> match popt with Some p' -> checkField v rflds.[f] p' | None -> None) (Some p) lflds
+          else
+            None
+
+    Set.fold (fun popt r -> match popt with Some p -> aeq (r, r) p | None -> None) (Some Map.empty) fxd   
+
+  /// Assumes that there is some store s', permutation p such that s' in ss and alphaEq fixd s s' = p 
+  let findWithWitness (fixd: Set<RegId>) (s: Store) (ss: List<Store>) : Store * Perm<RegId> =
+    let folder opt s' =
+      match opt with 
+      | Some x -> Some x
+      | None    ->
+          match alphaEq fixd s s' with
+          | None       -> None
+          | Some p'    -> Some (s', p')
+
+    match List.fold folder None ss with
+    | None -> failwith "Expected to find alpha-equivalent store"
+    | Some p -> p
+

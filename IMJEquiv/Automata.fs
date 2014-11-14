@@ -92,8 +92,7 @@ module Automata =
 //      let innerfolder acc f v = Map.add f (tryapply v) acc
 //      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
 //    Map.fold folder Map.empty s
-    
- 
+   
 
   let muSupp (ms: List<Move>) : Set<RegId> =
     List.fold (fun acc m -> Set.union acc (Move.supp m)) Set.empty ms
@@ -106,6 +105,18 @@ module Automata =
   let newState () : State =
     do stateCount := !stateCount + 1
     { Val = !stateCount } :> State
+
+  let empty (s0: Store) : Automaton =
+    let initState = newState ()
+    {
+      States = [initState]
+      InitS = initState
+      Owner = Map.singleton initState P
+      TransRel = []
+      InitR = []
+      Final = []
+      Rank = Map.singleton initState s0
+    } 
 
   let twoStateAuto (l: Label) (s0: Store) (sF: Store) : Automaton =
     let q0 = newState ()
@@ -268,8 +279,192 @@ module Automata =
     | PermT (_,_,q)
     | LabelT (_,_,q) -> q
 
-  let rec fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: Store) : Automaton =
+  type Call = State * Set<RegId> * RegId * MethId * List<Val> * Store * State
+  type Ret  = Set<RegId> * Val * Store * State
+  type CallRet = Call * Ret
+
+  let partitionCallRets (rk: RegId) (owner: Map<State,Player>) (trs: List<Transition>) : List<CallRet> * List<Transition> =
+     let hs = HashSet ()
+     List.iter (fun tr -> ignore (hs.Add tr)) trs
+     let findRets (q': State) (ri: RegId) (mth: MethId) : List<Ret> =
+       let isRet (tr: Transition) : Option<Ret> =
+         match tr with
+         | LabelT (q1, Noop (x', (Ret (ri', mth', v),s')), q2) when ri' = ri && mth' = mth && q1 = q' -> Some (x',v,s',q2)
+         | _ -> None
+       List.fold (fun rs tr -> match isRet tr with Some ret -> let _ = hs.Remove tr in ret::rs | None -> rs) [] trs
+     let doCall (tr: Transition) : List<CallRet> =
+       match tr with
+       | LabelT (q1, Noop (x, (Call (ri, mth, vs),s)), q2) when owner.[q1] = P && ri <> rk -> 
+           let _ = hs.Remove tr
+           let rets = findRets  q2 ri mth
+           List.map (fun ret -> ((q1, x, ri, mth, vs, s, q2), ret)) rets
+       | _ -> []
+     let callrets = List.fold (fun crs tr -> doCall tr @ crs) [] trs
+     (callrets, Seq.toList hs)
+
+  let alphaEq (fxd: Set<RegId>) (tl1: TransLabel) (tl2: TransLabel) : Bool =
+    
+    let aEq (fxd: Set<RegId>) (m1, s1) (m2, s2) : Option<Perm<RegId>> =
+      let r = -1
+      match m1, m2 with
+      | Call (r1, mth1, ls1), Call (r2, mth2, ls2) ->
+          if mth1 = mth2 then
+            let fldMap1, _ = List.fold (fun (m,i) l -> (Map.add (i.ToString ()) l m, i+1)) (Map.empty,0) (VReg r1 :: ls1)
+            let fldMap2, _ = List.fold (fun (m,i) l -> (Map.add (i.ToString ()) l m, i+1)) (Map.empty,0) (VReg r2 :: ls2)
+            let s1' = Map.add r ("_fake", fldMap1) s1
+            let s2' = Map.add r ("_fake", fldMap2) s2
+            Store.alphaEq fxd s1' s2' 
+          else
+            None
+      | Ret (r1, mth1, v1), Ret (r2, mth2, v2) ->
+          if mth1 = mth2 then
+            let fldMap1 = Map.ofList [("0", VReg r1); ("1", v1)]
+            let fldMap2 = Map.ofList [("0", VReg r2); ("1", v2)] 
+            let s1' = Map.add r ("_fake", fldMap1) s1
+            let s2' = Map.add r ("_fake", fldMap2) s2
+            Store.alphaEq fxd s1' s2' 
+          else
+            None
+      | ValM  v1, ValM v2 ->
+            let fldMap1 = Map.ofList [("0", v1)]
+            let fldMap2 = Map.ofList [("0", v2)] 
+            let s1' = Map.add r ("_fake", fldMap1) s1
+            let s2' = Map.add r ("_fake", fldMap2) s2
+            Store.alphaEq fxd s1' s2' 
+      | _, _ -> None
+
+    let optPerm = 
+      match tl1, tl2 with
+      | Noop (_, l1), Noop (_, l2) -> 
+          aEq fxd l1 l2
+      | Pop (x1, l1, sc1, y1, z1), Pop (x2, l2, sc2, y2, z2) -> 
+          failwith ""
+      | Push (x1, l1, sc1, z1), Push (x2, l2, sc2, z2) ->
+          failwith ""
+      | _, _ -> None
+    Option.isSome optPerm
+
+  let rec mkMethodsAutomaton (d: ITbl) (g: TyEnv) (x: Ident) (rk: RegId) (i: IntId) (mu: List<Move>) (tyZ0: Set<RegId * IntId>) (mths: List<CanMeth>) = 
+    let tyZ0' = Set.add (rk, i) tyZ0 
+    let z0' = Set.map fst tyZ0'
+    let ss = Store.stores d Set.empty tyZ0'
+    let tyMths = ITbl.methods d i
+    let unionOfStores = List.fold (fun tySpp st -> Set.union tySpp (Store.tySupp d st)) Set.empty ss
+    let mkMethodInits (mth: CanMeth) : List<List<Val> * Store> =
+      let fldcnt = ref 0
+      let _, argTys, retTy = List.find (fun (mid,_,_) -> mid = mth.Name) tyMths
+      let fldMap = List.fold (fun m ty -> fldcnt := !fldcnt + 1; Map.add (fldcnt.ToString()) (IFld ty) m) Map.empty argTys
+      let ifaceDfn = Eqn fldMap
+      let d' = Map.add "__fake" ifaceDfn d
+      let r = -1
+      let mss = Store.stores d' unionOfStores (Set.add (r, "__fake") tyZ0')
+      let mapper (st:Store) =
+        let _, fldMap = st.[r]
+        let orderedFlds = Seq.sortBy (fun (k, v) -> Int32.Parse k) (Map.toSeq fldMap)
+        let ls = Seq.map snd orderedFlds
+        let str = Map.remove r st
+        (Seq.toList ls, str)
+      List.map mapper mss
+    let qfs = HashMap ()
+    List.iter (fun st -> let qf = newState () in qfs.[st] <- qf) ss
+    let cPhis = HashMap ()
+    let mkCAuto (l: List<Val>) (st: Store) (mth: CanMeth) =
+      let _, argTys, retTy = List.find (fun (mid,_,_) -> mid = mth.Name) tyMths
+      let mu' = mu @ (ValM (VReg rk) :: List.map (fun x -> ValM x) l)
+      let g'  = g @ ((x, Iface i) :: List.map2 (fun a ty -> (a, ty)) mth.Vars argTys)
+      let ci  = fromCanon d g' mth.Body mu' st 
+      ci
+    let mkCPhis (mth: CanMeth) =
+      let lsSs = mkMethodInits mth
+      List.iter (fun (l,st) -> cPhis.[(mth.Name,l,st)] <- mkCAuto l st mth) lsSs  
+    List.iter mkCPhis mths
+    let accTrans = ref []
+    let accOwner = ref Map.empty
+    let accRank  = ref Map.empty
+    // Construct (initial) opponent calls
+    for st in ss do
+      let newTranss = ref []
+      let qf = qfs.[st]
+      do accOwner := Map.add qf O !accOwner
+      do accRank := Map.add qf st !accRank
+      for kvp in cPhis do
+        let mthName,ls,st' = kvp.Key
+        let ci = kvp.Value
+        let y = Map.domain st'
+        let fxd = Map.domain st
+        let x = Set.difference y fxd
+        let newTl = Noop (x, (Call (rk,mthName,ls), st'))
+        let newTrans = LabelT (qf, newTl, ci.InitS)
+        let isAEq = List.exists (fun t -> match t with LabelT (_,tl,_) -> alphaEq fxd tl newTl | _ -> false) !newTranss
+        if not (isAEq) then newTranss := newTrans :: !newTranss
+      accTrans := !accTrans @ !newTranss
+    // Construct (initial) player returns
+    for kvp in cPhis do
+      let mthName,ls,st' = kvp.Key
+      let ci = kvp.Value
+      do accOwner := Map.union ci.Owner !accOwner
+      do accRank := Map.union ci.Rank !accRank
+      let ftrans, rest = List.partition (fun tr -> isFinalTrans ci tr) ci.TransRel
+      for tr in ftrans do
+        match tr with
+        | LabelT (q, Noop (x, (ValM l, s'')), qf) -> 
+            let sj' = Store.trim s'' z0'
+            let z = Map.domain sj'
+            let q' = newState ()
+            let q'' = newState ()
+            do accOwner := Map.add q'' O (Map.add q' O !accOwner)
+            do accRank := Map.add q'' (Map.restrict s'' z) (Map.add q' s'' !accRank)
+            let qq' = LabelT (q, Noop (x, (Move.Ret (rk, mthName, l), s'')), q')
+            let q'q'' = SetT (q', z, q'')
+            let sj, pi = Store.findWithWitness z0' sj' ss
+            let q''qfsj = PermT (q'', pi, qfs.[sj])
+            accTrans := qq' :: q'q'' :: q''qfsj :: !accTrans
+        | _ -> failwith "Expected labelled noop value transition as final transition"
+      // Construct push transitions
+      let callRets, rest' = partitionCallRets rk ci.Owner rest
+      do accTrans := rest' @ !accTrans // at this point rest' remain untouched
+      for crp in callRets do
+        let (q, x, ri, mth, ls, s'', q'), (x', l', s', q'') = crp
+        let sj' = Store.trim s'' z0'
+        let z = Map.domain sj'
+        let y = Map.domain s''
+        let qin = newState ()
+        let qin' = newState ()
+        do accOwner := Map.add qin' O (Map.add qin O !accOwner)
+        do accRank := Map.add qin' (Map.restrict s'' z) (Map.add qin s'' !accRank)
+        let qqin = LabelT (q,Push (x,(Call (ri,mth,ls), s''),q'',y),qin)
+        let qinqin' = SetT (qin,z,qin')
+        let sj, pi = Store.findWithWitness z0' sj' ss
+        let qin'qfsj = PermT (qin', pi, qfs.[sj])
+        accTrans := qqin :: qinqin' :: qin'qfsj :: !accTrans
+        // Construct pop transitions
+        for st in ss do
+          let domSj' = Map.domain st
+          let fs = Perm.allPartialPerms z0' domSj' (Set.union x' y)
+          let sz = Set.count domSj'
+          let extend (f: Perm<RegId>) : Perm<RegId> =
+            let codf = Map.codomain f
+            let szCodf = Set.count codf
+            let remCod = Store.nextiReg (sz-szCodf) (Set.union x' y)
+            let remDom = Set.difference domSj' (Map.domain f)
+            Perm.extendPartial f (Set.toList remDom) (Set.toList remCod)
+          let qfsj' = qfs.[st]
+          for f in fs do
+            let qint = newState ()
+            let pi = extend f
+            do accOwner := Map.add qint O !accOwner
+            do accRank  := Map.add qint (Store.postPermute pi st) !accRank
+            let qfsj'qint = PermT (qfsj', pi, qint)
+            let codf = Map.codomain f
+            let x'' = Set.difference x' codf
+            let y' = Set.intersect y codf
+            let qintq'' =  LabelT (qint,Pop (x'',(Ret (ri,mth,l'),s'),q'',y,y'),q'')
+            accTrans := qfsj'qint :: qintq'' :: !accTrans
+    (!accTrans, !accRank, !accOwner, qfs, ss)
+
+  and fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: Store) : Automaton =
     let x0 = Map.domain s
+    let z0 = muSupp mu
     match cn with
     | NullR -> twoStateAuto (ValM VNul, s) s s
     | Var x -> 
@@ -470,7 +665,7 @@ module Automata =
           | Void ->
               let z0 = muSupp mu
               let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
-              let allStores = Store.stores d s tyZ0
+              let allStores = Store.stores d (Store.tySupp d s) tyZ0
               let folder (states, owner: Map<State,Player>, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let mu' = List.append mu [ValM VStar]
@@ -502,7 +697,7 @@ module Automata =
               let rj'folder (states', owner', rank', trel', final') rj' =
                 let z0' = Set.add rj' z0 
                 let tyZ0' = Set.map (fun r -> (r, Store.tyOfReg s r)) z0'
-                let allStores = Store.stores d s tyZ0'
+                let allStores = Store.stores d (Store.tySupp d s) tyZ0'
                 let mu' = List.append mu [ValM (VReg rj')]
                 let g'  = List.append g [(x, xty)]
                 let s0'folder (states, owner, rank, trel, final) s0' =
@@ -533,7 +728,7 @@ module Automata =
               let z0 = muSupp mu
               let domS = Map.domain s
               let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
-              let allStores = Store.stores d s tyZ0
+              let allStores = Store.stores d (Store.tySupp d s) tyZ0
               let s0'folder (states, owner, rank, trel, final) s0' =
                 let (nuX, rY) = getPair s0'
                 let jfolder (states', owner', rank', trel', final') j =
@@ -569,7 +764,7 @@ module Automata =
          else
            let z0 = muSupp mu
            let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
-           let allStores = Store.stores d s tyZ0
+           let allStores = Store.stores d (Store.tySupp d s) tyZ0
            let mkNuC c s1 =
              let c'  = fromCanon d g c mu s1
              nu d c' Map.empty 
@@ -594,7 +789,7 @@ module Automata =
                         let r' = ps'.Store
                         let q  = ps.State
                         match l with
-                        | Noop (x, (ValM Star, s')) -> 
+                        | Noop (x, (ValM VStar, s')) -> 
                             let s1' = Store.trim (Map.union s' r') z0
                             let z1  = Map.domain s1'
                             let z1' = Set.intersect (Set.union (Map.domain r) x) z1
@@ -626,8 +821,73 @@ module Automata =
              Final    = fStates
              InitR    = Set.toList x0
            }
-    
-
-//  and fromCanLet (d: TyEnv) (g: ITbl) (c: CanLet) (l: Label) : Automaton =
-//    match c with
-//    | Skip -> 
+     | NewR (oi',x,i,mths) ->
+         match oi' with
+         | Some i' when not (Types.subtype d i i') ->
+             empty s
+         | _ ->
+             let rk = Store.nextReg x0
+             let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+             let z0' = Set.add rk z0
+             let trans, rank, owner, qfs, ss = mkMethodsAutomaton d g x rk i mu tyZ0 mths  
+             let s1 = Map.add rk (i, Store.mkDefaultObj d i) s
+             let s1', pi1 = Store.findWithWitness z0' s1 ss
+             let q0 = newState ()
+             let q0' = newState ()
+             let q0q0' = LabelT (q0, Noop (Set.singleton rk, (ValM (VReg rk), s1)) ,q0')
+             let q1 = qfs.[s1']
+             let q0'q1 = PermT (q0',pi1,q1)
+             let owner' = Map.add q0 P (Map.add q0' O owner)
+             let rank'  = Map.add q0 s (Map.add q0' s1 rank)
+             let trans' = q0q0' :: q0'q1 :: trans
+             {
+               Automaton.Final = List.map (fun s -> qfs.[s]) ss
+               Automaton.InitR = Set.toList x0
+               Automaton.InitS = q0
+               Automaton.Owner = owner'
+               Automaton.Rank = rank'
+               Automaton.States = Map.domainList owner'
+               Automaton.TransRel = trans'
+             } 
+     | Let (x, NewB (x',i,mths), c') ->
+         let rk = Store.nextReg x0
+         let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+         let z0' = Set.add rk z0
+         let psi0 = Store.mkDefaultObj d i
+         let r0 = Map.singleton rk (i, psi0)
+         let g' = g @ [(x',Ty.Iface i)]
+         let mu' = mu @ [ValM (VReg rk)]
+         let s0' = Map.union s r0
+         let ac' = fromCanon d g' c' mu' s0' 
+         let a' = nu d ac' r0
+         let trans, rank, owner, qfs, ss = mkMethodsAutomaton d g x' rk i mu tyZ0 mths
+         let ftrans, rest = List.partition (fun tr -> isFinalTrans a' tr) a'.TransRel
+         let accTrans = ref (trans @ rest)
+         let accOwner = ref (Map.union owner a'.Owner)
+         let accRank = ref (Map.union rank a'.Rank)
+         for tr in ftrans do
+          match tr with
+          | LabelT (q, Noop (x, (ValM (VReg r), s'')), qf) when r = rk -> 
+              let sj' = Store.trim s'' z0'
+              let z = Map.domain sj'
+              let q' = newState ()
+              let q'' = newState ()
+              do accOwner := Map.add q'' O (Map.add q' O !accOwner)
+              do accRank := Map.add q'' (Map.restrict s'' z) (Map.add q' s'' !accRank)
+              let qq' = LabelT (q, Noop (x, (ValM (VReg r), s'')), q')
+              let q'q'' = SetT (q', z, q'')
+              let sj, pi = Store.findWithWitness z0' sj' ss
+              let q''qfsj = PermT (q'', pi, qfs.[sj])
+              accTrans := qq' :: q'q'' :: q''qfsj :: !accTrans
+          | _ -> accTrans := tr :: !accTrans
+         {
+           Automaton.Final = a'.Final @ (Seq.toList qfs.Values)
+           Automaton.InitR = a'.InitR
+           Automaton.InitS = a'.InitS
+           Automaton.Owner = !accOwner
+           Automaton.Rank = !accRank
+           Automaton.States = Map.domainList !accOwner
+           Automaton.TransRel = !accTrans
+         }
+         // may need to check alpha equiv of incoming transitions.
+               
