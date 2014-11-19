@@ -13,14 +13,14 @@ type Val =
     | VNum n -> n.ToString()
     | VStar  -> "*"
     | VNul   -> "null"
-    | VReg n -> "r" + n.ToString()
+    | VReg n -> n.ToString()
 
   member x.Show = x.ToString ()
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Val =
 
-  let maxint = 5
+  let maxint = 1
 
   let supp (v: Val) : Set<RegId> =
     match v with
