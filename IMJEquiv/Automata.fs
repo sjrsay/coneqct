@@ -15,7 +15,7 @@ type IntState =
   interface State with
     override x.CompareTo (yobj: Object) : Int =
       match yobj with
-      | :? IntState as y -> compare x y  
+      | :? IntState as y -> compare x.Val y.Val  
       | _ -> 1
 
 [<CustomComparison>]
@@ -29,12 +29,11 @@ type PairState =
   interface State with
     member x.CompareTo (yobj: Object) : Int =
       match yobj with
-      | :? PairState as y -> compare x y  
+      | :? PairState as y -> compare (x.State, x.Store) (y.State, y.Store)
       | _ -> -1
 
 type Label = Move * Store
 
-// This needs looked at
 type StackConst = State
 
 type TransLabel =
@@ -74,26 +73,7 @@ module Automata =
         | Pop  (_, l, _, _, _)
         | Noop (_, l)       -> Some l
     | _                 -> None
-
-//  let storesOfAutomaton (a: Automaton) : Set<Store> =
-//    let folder (ss: Set<Store>)  
-
-
-//  let renStore (s: Store) (ren: Map<RegId, RegId>) : Store =
-//    let tryapplyR (r: RegId) : RegId =
-//      if Map.containsKey r ren then ren.[r] else r
-//    let tryapply (x : Val) : Val =
-//      match x with
-//      | Num _
-//      | Star
-//      | Nul -> x
-//      | Reg r -> Reg (tryapplyR r)
-//    let folder acc r (i, m) =
-//      let innerfolder acc f v = Map.add f (tryapply v) acc
-//      Map.add (tryapplyR r) (i, Map.fold innerfolder Map.empty m) acc 
-//    Map.fold folder Map.empty s
    
-
   let muSupp (ms: List<Move>) : Set<RegId> =
     List.fold (fun acc m -> Set.union acc (Move.supp m)) Set.empty ms
 
@@ -313,7 +293,7 @@ module Automata =
             let fldMap2, _ = List.fold (fun (m,i) l -> (Map.add (i.ToString ()) l m, i+1)) (Map.empty,0) (VReg r2 :: ls2)
             let s1' = Map.add r ("_fake", fldMap1) s1
             let s2' = Map.add r ("_fake", fldMap2) s2
-            Store.alphaEq fxd s1' s2' 
+            Store.alphaEq (Set.add r fxd) s1' s2' 
           else
             None
       | Ret (r1, mth1, v1), Ret (r2, mth2, v2) ->
@@ -322,7 +302,7 @@ module Automata =
             let fldMap2 = Map.ofList [("0", VReg r2); ("1", v2)] 
             let s1' = Map.add r ("_fake", fldMap1) s1
             let s2' = Map.add r ("_fake", fldMap2) s2
-            Store.alphaEq fxd s1' s2' 
+            Store.alphaEq (Set.add r fxd) s1' s2' 
           else
             None
       | ValM  v1, ValM v2 ->
@@ -330,7 +310,7 @@ module Automata =
             let fldMap2 = Map.ofList [("0", v2)] 
             let s1' = Map.add r ("_fake", fldMap1) s1
             let s2' = Map.add r ("_fake", fldMap2) s2
-            Store.alphaEq fxd s1' s2' 
+            Store.alphaEq (Set.add r fxd) s1' s2' 
       | _, _ -> None
 
     let optPerm = 
@@ -889,5 +869,51 @@ module Automata =
            Automaton.States = Map.domainList !accOwner
            Automaton.TransRel = !accTrans
          }
-         // may need to check alpha equiv of incoming transitions.
+         
                
+  let toDot (a: Automaton) : String =
+    let storeLabel = ref 0
+    let storeTable = HashMap ()
+    let printSet (xs: Seq<'A>) : String = 
+      List.toStringWithDelims "{" "," "}" (Seq.toList  xs)
+    // Rather than printing every store in full,
+    // print a label for the store of the form `si`
+    let printStore (s: Store) : String =
+      let i = 
+        match HashMap.tryFind s storeTable with
+        | Some i -> i
+        | None -> 
+            do incr storeLabel
+            do storeTable.[s] <- !storeLabel
+            !storeLabel
+      "s" + i.ToString ()
+    let rec printState (q: State) : String =
+      match q with
+      | :? IntState as p -> "q" + p.Val.ToString ()
+      | :? PairState as p -> "(" + printState p.State + ", " + printStore p.Store + ")" 
+    let printStateDecl (q: State) : String =
+      let shape = if List.contains q a.Final then "doublecircle" else "circle"
+      let qstr = printState q
+      sprintf "%s [label=\"%s[%s]\",shape=%s]" qstr qstr (printStore a.Rank.[q]) shape
+    let printStateDecls () : String =
+      List.fold (fun s q -> s + printStateDecl q + "\n") "" a.States
+    let printTransition (t: Transition) : String =
+      match t with
+      | Transition.SetT (q, rs, q') -> sprintf "%s -> %s [label=\"%s\"]" (printState q) (printState q') (printSet rs)
+      | Transition.PermT (q, pi, q') -> sprintf "%s -> %s" (printState q) (printState q')
+      | Transition.LabelT (q, tl, q') -> 
+          let tls =
+            match tl with
+            | TransLabel.Noop (x, (m, s)) -> sprintf "nu %s. %A[%s]" (printSet x) m (printStore s)
+            | TransLabel.Pop (x, (m, s), q'', y, z) -> sprintf "nu %s. %A[%s] / %s, %s, %s" (printSet x) m (printStore s) (printState q'') (printSet y) (printSet z)
+            | TransLabel.Push (x, (m, s), q'', y) -> sprintf "nu %s. %A[%s] \\ %s, %s" (printSet x) m (printStore s) (printState q'') (printSet y)
+          sprintf "%s -> %s [label=\"%s\"]" (printState q) (printState q') tls
+    let printTransitions () : String =
+      List.fold (fun s t -> s + printTransition t + "\n") "" a.TransRel
+    let printStoreTable () : String =
+      let str = ref ""
+      for k in storeTable.Keys do
+        str := !str + "\ns" + storeTable.[k].ToString () + ": " + k.ToString ()
+      sprintf "\nstores [label=\"%s\", shape=box]" !str
+        
+    sprintf "digraph automaton {\n" + printStateDecls () + printTransitions () + printStoreTable () + "}"

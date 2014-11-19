@@ -6,7 +6,15 @@ open IMJEquiv
 #load "Helpers.fs"
 open IMJEquiv
 
-let s = ptm "let x = 3 in x"
-let t = ptm "let y = 3 in y"
-Term.alphaEq s t
+let fn = System.IO.Path.Combine(__SOURCE_DIRECTORY__,"auto.dot")
 
+let d = pitbl "I = { f: int, m:int -> int }"
+let g = ptyenv ""
+let t = ptm "new {z:I; m:\x.x}"
+let c = Canonical.canonise g t
+let m = Move.ValM Val.VStar
+let s = pstore ""
+let a = Automata.fromCanon d g c [m] s
+System.IO.File.WriteAllText(fn,Automata.toDot a)
+
+ITbl.methods d "I"
