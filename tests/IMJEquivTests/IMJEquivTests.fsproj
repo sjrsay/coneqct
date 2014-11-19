@@ -24,8 +24,10 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\IMJEquivTests.XML</DocumentationFile>
     <StartAction>Program</StartAction>
-    <StartProgram>C:\Users\steven\SkyDrive\Projects\IMJEquiv\packages\NUnit.Runners.2.6.3\tools\nunit-console.exe</StartProgram>
-    <StartArguments>"IMJEquivTests.dll" /framework=net-4.5</StartArguments>
+    <StartProgram>C:\Users\steven\SkyDrive\Projects\IMJEquiv\packages\NUnit.Runners.2.6.3\tools\nunit.exe</StartProgram>
+    <StartArguments>"IMJEquivTests.dll" /run</StartArguments>
+    <StartWorkingDirectory>
+    </StartWorkingDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -57,6 +59,7 @@
     <Compile Include="SyntaxTests.fs" />
     <Compile Include="CanonicalTests.fs" />
     <Compile Include="StoreTests.fs" />
+    <Compile Include="AutomatonTests.fs" />
     <None Include="Quick.fsx" />
     <None Include="packages.config" />
     <Content Include="app.config" />
