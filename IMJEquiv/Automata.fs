@@ -398,6 +398,8 @@ module Automata =
             let q'q'' = SetT (q', z, q'')
             let sj, pi = Store.findWithWitness z0' sj' ss
             let q''qfsj = PermT (q'', pi, qfs.[sj])
+            accOwner := Map.remove qf !accOwner
+            accRank  := Map.remove qf !accRank
             accTrans := qq' :: q'q'' :: q''qfsj :: !accTrans
         | _ -> failwith "Expected labelled noop value transition as final transition"
       // Construct push transitions
