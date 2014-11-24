@@ -26,7 +26,7 @@ module Perm =
     
     let rec mkPartialPerms u v (p: Perm<RegId>) : List<Perm<RegId>> =
       match u with
-      | [] -> []
+      | [] -> [p]
       | x::xs ->
           let xtoys = Set.fold (fun xss y -> mkPartialPerms xs (Set.remove y v) (Map.add x y p) @ xss) [] v
           let skipxs = mkPartialPerms xs v p
