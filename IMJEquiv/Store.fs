@@ -218,7 +218,7 @@ module Store =
           let lty, lflds = s.[l]
           let rty, rflds = t.[r]
           if lty = rty then
-            Map.fold (fun popt f v -> match popt with Some p' -> checkField v rflds.[f] p' | None -> None) (Some p) lflds
+            Map.fold (fun popt f v -> match popt with Some p' -> checkField v rflds.[f] p' | None -> None) (Some p') lflds
           else
             None
 

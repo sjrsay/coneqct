@@ -63,8 +63,6 @@ type Automaton =
 
 module Automata = 
 
-  let maxint = 5
-
   let labelOfTrans (t: Transition) : Option<Label> =
     match t with
     | LabelT (_, tl, _) ->
@@ -263,7 +261,7 @@ module Automata =
   type Ret  = Set<RegId> * Val * Store * State
   type CallRet = Call * Ret
 
-  let partitionCallRets (rk: RegId) (owner: Map<State,Player>) (trs: List<Transition>) : List<CallRet> * List<Transition> =
+  let partitionCallRets (rk: RegId) (owner: Map<State,Player>) (trs: List<Transition>) : Map<Call, List<Ret>> * List<Transition> =
      let hs = HashSet ()
      List.iter (fun tr -> ignore (hs.Add tr)) trs
      let findRets (q': State) (ri: RegId) (mth: MethId) : List<Ret> =
@@ -272,14 +270,14 @@ module Automata =
          | LabelT (q1, Noop (x', (Ret (ri', mth', v),s')), q2) when ri' = ri && mth' = mth && q1 = q' -> Some (x',v,s',q2)
          | _ -> None
        List.fold (fun rs tr -> match isRet tr with Some ret -> let _ = hs.Remove tr in ret::rs | None -> rs) [] trs
-     let doCall (tr: Transition) : List<CallRet> =
+     let doCall (acc: Map<Call,List<Ret>>) (tr: Transition) : Map<Call,List<Ret>> =
        match tr with
        | LabelT (q1, Noop (x, (Call (ri, mth, vs),s)), q2) when owner.[q1] = P && ri <> rk -> 
            let _ = hs.Remove tr
-           let rets = findRets  q2 ri mth
-           List.map (fun ret -> ((q1, x, ri, mth, vs, s, q2), ret)) rets
-       | _ -> []
-     let callrets = List.fold (fun crs tr -> doCall tr @ crs) [] trs
+           let rets = findRets q2 ri mth
+           Map.add (q1, x, ri, mth, vs, s, q2) rets acc
+       | _ -> acc
+     let callrets = List.fold doCall Map.empty trs
      (callrets, Seq.toList hs)
 
   let alphaEq (fxd: Set<RegId>) (tl1: TransLabel) (tl2: TransLabel) : Bool =
@@ -406,7 +404,7 @@ module Automata =
       let callRets, rest' = partitionCallRets rk ci.Owner rest
       do accTrans := rest' @ !accTrans // at this point rest' remain untouched
       for crp in callRets do
-        let (q, x, ri, mth, ls, s'', q'), (x', l', s', q'') = crp
+        let (q, x, ri, mth, ls, s'', q') = crp.Key 
         let sj' = Store.trim s'' z0'
         let z = Map.domain sj'
         let y = Map.domain s''
@@ -414,34 +412,35 @@ module Automata =
         let qin' = newState ()
         do accOwner := Map.add qin' O (Map.add qin O !accOwner)
         do accRank := Map.add qin' (Map.restrict s'' z) (Map.add qin s'' !accRank)
-        let qqin = LabelT (q,Push (x,(Call (ri,mth,ls), s''),q'',y),qin)
+        let qqin = LabelT (q,Push (x,(Call (ri,mth,ls), s''),q',y),qin)
         let qinqin' = SetT (qin,z,qin')
         let sj, pi = Store.findWithWitness z0' sj' ss
         let qin'qfsj = PermT (qin', pi, qfs.[sj])
         accTrans := qqin :: qinqin' :: qin'qfsj :: !accTrans
         // Construct pop transitions
-        for st in ss do
-          let domSj' = Map.domain st
-          let fs = Perm.allPartialPerms z0' domSj' (Set.union x' y)
-          let sz = Set.count domSj'
-          let extend (f: Perm<RegId>) : Perm<RegId> =
-            let codf = Map.codomain f
-            let szCodf = Set.count codf
-            let remCod = Store.nextiReg (sz-szCodf) (Set.union x' y)
-            let remDom = Set.difference domSj' (Map.domain f)
-            Perm.extendPartial f (Set.toList remDom) (Set.toList remCod)
-          let qfsj' = qfs.[st]
-          for f in fs do
-            let qint = newState ()
-            let pi = extend f
-            do accOwner := Map.add qint O !accOwner
-            do accRank  := Map.add qint (Store.postPermute pi st) !accRank
-            let qfsj'qint = PermT (qfsj', pi, qint)
-            let codf = Map.codomain f
-            let x'' = Set.difference x' codf
-            let y' = Set.intersect y codf
-            let qintq'' =  LabelT (qint,Pop (x'',(Ret (ri,mth,l'),s'),q'',y,y'),q'')
-            accTrans := qfsj'qint :: qintq'' :: !accTrans
+        for (x', l', s', q'') in crp.Value do
+          for st in ss do
+            let domSj' = Map.domain st
+            let fs = Perm.allPartialPerms z0' domSj' (Set.union x' y)
+            let sz = Set.count domSj'
+            let extend (f: Perm<RegId>) : Perm<RegId> =
+              let codf = Map.codomain f
+              let szCodf = Set.count codf
+              let remCod = Store.nextiReg (sz-szCodf) (Set.union x' y)
+              let remDom = Set.difference domSj' (Map.domain f)
+              Perm.extendPartial f (Set.toList remDom) (Set.toList remCod)
+            let qfsj' = qfs.[st]
+            for f in fs do
+              let qint = newState ()
+              let pi = extend f
+              do accOwner := Map.add qint O !accOwner
+              do accRank  := Map.add qint (Store.postPermute pi st) !accRank
+              let qfsj'qint = PermT (qfsj', pi, qint)
+              let codf = Map.codomain f
+              let x'' = Set.difference x' codf
+              let y' = Set.intersect y codf
+              let qintq'' =  LabelT (qint,Pop (x'',(Ret (ri,mth,l'),s'),q',y,y'),q'')
+              accTrans := qfsj'qint :: qintq'' :: !accTrans
     (!accTrans, !accRank, !accOwner, qfs, ss)
 
   and fromCanon (d: ITbl) (g: TyEnv) (cn: Canon) (mu: List<Move>) (s: Store) : Automaton =
@@ -720,13 +719,13 @@ module Automata =
                   let q' = newState ()
                   let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VNum j), s0')), q')
                   let ret2 = SetT (q', rY, autoc.InitS)
-                  let states'' = q' :: states @ autoc.States
+                  let states'' = q' :: states' @ autoc.States
                   let owner'' = Map.union (Map.add q' P owner') autoc.Owner 
                   let rank'' = Map.union (Map.add q' s0' rank') autoc.Rank
-                  let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
-                  let final'' = final @ autoc.Final
+                  let trel'' = [ret1; ret2] @ trel' @ autoc.TransRel
+                  let final'' = final' @ autoc.Final
                   (states'', owner'', rank'', trel'', final'')
-                let js = [0..maxint]
+                let js = [0..Val.maxint]
                 let (states', owner', rank', trel', final') = List.fold jfolder (states, owner, rank, trel, final) js
                 (states', owner', rank', trel', final')
               let (states, owner, rank, trel, final) = List.fold s0'folder (states0, owner0, rank0, trel0, final0) allStores
@@ -876,6 +875,8 @@ module Automata =
   let toDot (a: Automaton) : String =
     let storeLabel = ref 0
     let storeTable = HashMap ()
+    let permLabel = ref 0
+    let permTable = HashMap ()
     let printSet (xs: Seq<'A>) : String = 
       List.toStringWithDelims "{" "," "}" (Seq.toList  xs)
     // Rather than printing every store in full,
@@ -889,6 +890,17 @@ module Automata =
             do storeTable.[s] <- !storeLabel
             !storeLabel
       "s" + i.ToString ()
+    // Rather than printing every permutation in full,
+    // print a label for the permutation of the form `pi`
+    let printPerm (p: Perm<RegId>) : String =
+      let i = 
+        match HashMap.tryFind p permTable with
+        | Some i -> i
+        | None -> 
+            do incr permLabel
+            do permTable.[p] <- !permLabel
+            !permLabel
+      "p" + i.ToString ()
     let rec printState (q: State) : String =
       match q with
       | :? IntState as p -> "q" + p.Val.ToString ()
@@ -902,7 +914,7 @@ module Automata =
     let printTransition (t: Transition) : String =
       match t with
       | Transition.SetT (q, rs, q') -> sprintf "%s -> %s [label=\"%s\"]" (printState q) (printState q') (printSet rs)
-      | Transition.PermT (q, pi, q') -> sprintf "%s -> %s" (printState q) (printState q')
+      | Transition.PermT (q, pi, q') -> sprintf "%s -> %s [label=\"%s\"]" (printState q) (printState q') (printPerm pi)
       | Transition.LabelT (q, tl, q') -> 
           let tls =
             match tl with
@@ -912,10 +924,18 @@ module Automata =
           sprintf "%s -> %s [label=\"%s\"]" (printState q) (printState q') tls
     let printTransitions () : String =
       List.fold (fun s t -> s + printTransition t + "\n") "" a.TransRel
+    let printStoreContents (m: Store) : String =
+      let printFieldContents (m: Map<FldId,Val>) : String =
+        Map.fold (fun ss k v -> "\l\t\t" + k.ToString () + " = " + v.ToString()) "" m
+      Map.fold (fun ss k (i,m') -> ss + "\l\t" + k.ToString() + " : " + i + printFieldContents m') "" m
     let printStoreTable () : String =
       let str = ref ""
       for k in storeTable.Keys do
-        str := !str + "\ns" + storeTable.[k].ToString () + ": " + k.ToString ()
+        str := !str + "\ls" + storeTable.[k].ToString () + ": " + k.ToString ()
       sprintf "\nstores [label=\"%s\", shape=box]" !str
-        
-    sprintf "digraph automaton {\n" + printStateDecls () + printTransitions () + printStoreTable () + "}"
+    let printPermTable () : String =
+      let str = ref ""
+      for k in permTable.Keys do
+        str := !str + "\np" + permTable.[k].ToString () + ": " + k.ToString ()
+      sprintf "\nperms [label=\"%s\", shape=box]" !str    
+    sprintf "digraph automaton {\n" + printStateDecls () + printTransitions () + printStoreTable () + printPermTable () + "}"
