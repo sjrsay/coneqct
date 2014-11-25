@@ -11,42 +11,48 @@ open NUnit.Framework
 [<Test>]
 let ``variables are already canonical`` () =
   let tyEnv, tm = ptytm "x : int |- x "
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "x"
   AssertAlphaEqual(expected, result)
 
 [<Test>]
 let ``null is already canonical`` () =
   let tyEnv, tm = ptytm "|- null"
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "null"
   AssertAlphaEqual(expected, result)
 
 [<Test>]
 let ``ints are put in a let`` () =
   let tyEnv, tm = ptytm "|- 3"
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "let x = 3 in x"     
   AssertAlphaEqual(expected, result)
 
 [<Test>]
 let ``skip is put in a let`` () =
   let tyEnv, tm = ptytm "|- skip"
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "let x = skip in x"
   AssertAlphaEqual (expected, result)
 
 [<Test>]
 let ``complex additions require lemma 34`` () =
   let tyEnv, tm = ptytm "|- x + (let y = 3 in y)"
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "let z1 = 3 in let z2 = x + z1 in z2"
   AssertAlphaEqual (expected, result)
 
 [<Test>]
 let ``canonical form of null equals x`` () =
   let tyEnv, tm = ptytm "x:I |- null = x"
-  let result = Canonical.toTerm (Canonical.canonise tyEnv tm)
+  let d = pitbl ""
+  let result = Canonical.toTerm (Canonical.canonise d tyEnv tm)
   let expected = ptm "let y = null in let z = x = y in z"
   AssertAlphaEqual (expected, result)
 
