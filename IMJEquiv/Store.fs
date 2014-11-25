@@ -148,7 +148,7 @@ module Store =
                 let sTypedSupp = tySupp d s
                 let sFilteredSupp = Set.fold (fun acc (r, j) -> if i = j then r :: acc else acc) [] sTypedSupp
                 let s0'Filtered = Set.fold (fun acc (r, j) -> if i = j then r :: acc else acc) [] s0Names
-                let fresh = nextTypedReg (Set.union sTypedSupp s0Names)
+                let fresh = nextTypedReg (Set.unionMany [sTypedSupp; s0Names; set rs])
                 let choices = fresh :: sFilteredSupp @ s0'Filtered
                 for x in choices do
                   let s' = Map.update r (fun (i, m) -> (i, Map.add f (VReg x) m)) s

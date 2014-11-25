@@ -457,12 +457,14 @@ module Automata =
           fromCanon d g c0 mu s 
         else
           fromCanon d g c1 mu s
-    | Let (_, Assn (x,f,y), c) ->
+    | Let (z, Assn (x,f,y), c) ->
         let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv x g]
         let (ValM (VReg rj')) = mu.[Types.getPosInTyEnv y g]
         let newStore = Store.update s rk' f (VReg rj')
         let trimmedStore = Store.trim newStore (muSupp mu)
-        let cAuto = fromCanon d g c mu trimmedStore
+        let g' = g @ [(z,Ty.Void)]
+        let mu' = mu @ [ValM VStar]
+        let cAuto = fromCanon d g' c mu' trimmedStore
         let q0 = newState ()
         let owner = Map.add q0 P cAuto.Owner 
         let rank = Map.add q0 s cAuto.Rank
@@ -553,9 +555,12 @@ module Automata =
         }
      | Let (y, Eq (x1, x2), c) -> 
         let q0 = newState ()
-        let (ValM (VReg x1val)) = mu.[Types.getPosInTyEnv x1 g]
-        let (ValM (VReg x2val)) = mu.[Types.getPosInTyEnv x2 g]
-        let cmp = if x1val = x2val then 1 else 0
+        let cmp = 
+          match mu.[Types.getPosInTyEnv x1 g], mu.[Types.getPosInTyEnv x2 g] with
+          | ValM (VNum i), ValM (VNum j) -> if i = j then 1 else 0
+          | ValM (VReg x1val), ValM (VReg x2val) -> if x1val = x2val then 1 else 0
+          | ValM VNul, ValM VNul -> 1
+          | _, _ -> 0
         let mu' = List.append mu  [ValM (VNum cmp)]
         let g' = List.append g [(y, Int)]
         let cAuto = fromCanon d g' c mu' s
@@ -836,7 +841,7 @@ module Automata =
          let z0' = Set.add rk z0
          let psi0 = Store.mkDefaultObj d i
          let r0 = Map.singleton rk (i, psi0)
-         let g' = g @ [(x',Ty.Iface i)]
+         let g' = g @ [(x,Ty.Iface i)]
          let mu' = mu @ [ValM (VReg rk)]
          let s0' = Map.union s r0
          let ac' = fromCanon d g' c' mu' s0' 
@@ -904,11 +909,15 @@ module Automata =
     let rec printState (q: State) : String =
       match q with
       | :? IntState as p -> "q" + p.Val.ToString ()
-      | :? PairState as p -> "(" + printState p.State + ", " + printStore p.Store + ")" 
+      | :? PairState as p -> printState p.State + printStore p.Store 
     let printStateDecl (q: State) : String =
       let shape = if List.contains q a.Final then "doublecircle" else "circle"
-      let qstr = printState q
-      sprintf "%s [label=\"%s[%s]\",shape=%s]" qstr qstr (printStore a.Rank.[q]) shape
+      let rec printLabel (q: State) = 
+        match q with
+        | :? IntState as p -> "q" + p.Val.ToString ()
+        | :? PairState as p -> "(" + printLabel p.State + ", " + printStore p.Store + ")"
+      let qstr = printLabel q
+      sprintf "%s [label=\"%s[%s]\",shape=%s]" (printState q) qstr (printStore a.Rank.[q]) shape
     let printStateDecls () : String =
       List.fold (fun s q -> s + printStateDecl q + "\n") "" a.States
     let printTransition (t: Transition) : String =

@@ -213,7 +213,7 @@ module Canonical =
   let typeOfCanLet (d: ITbl) (g: TyEnv) (cl: CanLet) : Ty =
     failwith "Not implemented yet"
 
-  let rec canonise (e: TyEnv) (t: Term) : Canon =
+  let rec canonise (d: ITbl) (e: TyEnv) (t: Term) : Canon =
     match t with
     | BVar x -> Var x
     | Null -> NullR
@@ -228,16 +228,16 @@ module Canonical =
         let x'  = newVar ()
         let x'' = newVar ()
         let let1 = Let (x'', Plus (x, x'), Var x'')
-        let let2 = lemma34 x' (canonise e m') let1
-        lemma34 x (canonise e m) let2
+        let let2 = lemma34 x' (canonise d e m') let1
+        lemma34 x (canonise d e m) let2
     | Term.Eq (m, m') ->
-        let canm  = canonise e m
-        let canm' = canonise e m'
+        let canm  = canonise d e m
+        let canm' = canonise d e m'
         match (canm, canm') with
         // This needs to check for casting errors
-        | NewR _, _    -> canonise e (Term.Num 0)
-        | _, NewR _    -> canonise e (Term.Num 0)
-        | NullR, NullR -> canonise e (Term.Num 0)
+        | NewR _, _    -> canonise d e (Term.Num 0)
+        | _, NewR _    -> canonise d e (Term.Num 0)
+        | NullR, NullR -> canonise d e (Term.Num 0)
         | NullR, Var x
         | Var x, NullR ->
             let y = newVar ()
@@ -270,19 +270,19 @@ module Canonical =
             lemma34 z m (If (x, let1, let2))
     | Term.Seq (m, m') ->
         let x = newVar ()
-        lemma34 x (canonise e m) (canonise e m')
+        lemma34 x (canonise d e m) (canonise d e m')
     | Term.Cond (m, m', m'') ->
         let x  = newVar ()    
-        lemma34 x (canonise e m) (If (x, canonise e m', canonise e m''))
+        lemma34 x (canonise d e m) (If (x, canonise d e m', canonise d e m''))
     | Term.Assn (m, f, m') ->
         let x   = newVar ()
         let x'  = newVar ()
         let x'' = newVar ()
         let let2 = Let (x'', Assn (x,f,x'), Var x'')
-        let let1 = lemma34 x' (canonise e m') let2
-        lemma34 x (canonise e m) let1
+        let let1 = lemma34 x' (canonise d e m') let2
+        lemma34 x (canonise d e m) let1
     | Term.Fld (m, f) ->
-        let cm = canonise e m
+        let cm = canonise d e m
         match cm with
         | NullR _ -> div
         | NewR (oi, t, r, ms) ->
@@ -298,10 +298,10 @@ module Canonical =
             let let1 = lemma34 x' c (Let (v, Fld(x',f), Var v))
             Let (x, clet, let1)
         | If (x, c1, c2) ->
-            canonise e (Term.Cond (BVar x, Term.Fld(toTerm c1, f), Term.Fld (toTerm c2, f)))
+            canonise d e (Term.Cond (BVar x, Term.Fld(toTerm c1, f), Term.Fld (toTerm c2, f)))
     | Term.Call (m, mth, ns) ->
-        let cm = canonise e m
-        let cns = List.map (canonise e) ns
+        let cm = canonise d e m
+        let cns = List.map (canonise d e) ns
         match cm with
         | NullR -> div
         | Var x -> 
@@ -322,16 +322,16 @@ module Canonical =
                 lets
         | If (x, c1, c2) ->  
             let tcns = List.map toTerm cns
-            canonise e (Term.Cond (BVar x, Term.Call (toTerm c1, mth, tcns), Term.Call (toTerm c2, mth, tcns)))
+            canonise d e (Term.Cond (BVar x, Term.Call (toTerm c1, mth, tcns), Term.Call (toTerm c2, mth, tcns)))
         | Let (x, clet, c) ->
-            Let (x, clet, canonise e (Term.Call (toTerm c, mth, List.map toTerm cns)))
+            Let (x, clet, canonise d e (Term.Call (toTerm c, mth, List.map toTerm cns)))
     | Term.Cast (i, m) ->
-        let cm = canonise e m
+        let cm = canonise d e m
         match cm with
         | If (x, c1, c2) ->
-            If (x, canonise e (Term.Cast (i, toTerm c1)), canonise e (Term.Cast (i, toTerm c2))) 
+            If (x, canonise d e (Term.Cast (i, toTerm c1)), canonise d e (Term.Cast (i, toTerm c2))) 
         | Let (x, clet, c) ->
-            Let (x, clet, canonise e (Term.Cast (i, toTerm c)))
+            Let (x, clet, canonise d e (Term.Cast (i, toTerm c)))
         | NullR -> NullR
         | Var x -> 
             let y = newVar ()
@@ -340,20 +340,23 @@ module Canonical =
             // Check relationship between oi and i
             NewR (Some i, t, r, ms)
     | Term.LetCast (x, i, y, m) ->
-        Let (x, Cast(i, y), canonise e m)
+        Let (x, Cast(i, y), canonise d e m)
     | Term.LetCl (x, y, mth, ns, m) ->
         let zs = List.map (fun _ -> newVar()) ns
-        let cns = List.map (canonise e) ns
-        let bse = Let (x, Call(y, mth, zs), canonise e m)
+        let cns = List.map (canonise d e) ns
+        let bse = Let (x, Call(y, mth, zs), canonise d e m)
         let lets = List.fold2 (fun b z n -> lemma34 z n b) bse zs cns
         lets
     | Term.Let (x, m, m') ->
-        lemma34 x (canonise e m) (canonise e m')
+        lemma34 x (canonise d e m) (canonise d e m')
     | Term.While (m, m') ->
         // We need the varint type here
         div
     | Term.New (t, r, ms) ->
         let canMeth (m: MethSpec) : CanMeth =
-          { Name = m.Name; Vars = m.Vars; Body = canonise e m.Body } 
+          let argTys, _ = Types.ofMeth d r m.Name
+          let argTypings = List.zip m.Vars argTys
+          let e' = e @ argTypings
+          { Name = m.Name; Vars = m.Vars; Body = canonise d e' m.Body } 
         let cms = List.map canMeth ms
         NewR (None, t, r, cms)
