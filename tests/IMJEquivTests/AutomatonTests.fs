@@ -33,11 +33,11 @@ let ``auto3`` () =
   let t = ptm "new {z:I; m:\x.cxt.n(x)}"
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
-  let s = pstore "r1 : I = {}"
+  let s = pstore "r1 : J = {}"
   let a = Automata.fromCanon d g c [m] s
   System.IO.File.WriteAllText(fn,Automata.toDot a)
 
-[<Test>]
+//[<Test>]
 let ``auto4`` () =
   let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
   let g = ptyenv "v:VarEmpty"
@@ -48,14 +48,35 @@ let ``auto4`` () =
   let a = Automata.fromCanon d g c [m] s
   System.IO.File.WriteAllText(fn,Automata.toDot a)
 
-[<Test>]
+//[<Test>]
 let ``auto5`` () =
-  let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
-  let g = ptyenv "cxt:void"
-  let t = ptm "let v = new {a:VarEmpty;} in new {z:Cell; get:\x.v.val, set:\y.if y=null then skip else (v.val := y)}"
+  let d = pitbl "VarInt = { val: int }"
+  let g = ptyenv "y:VarInt"
+  let t = ptm "let v = new { z:VarInt; } in v.val := 1; y.val := 1"
   let c = Canonical.canonise d g t
-  let m = Move.ValM (Val.VStar)
+  let m = [Move.ValM (Val.VReg 1)]
+  let s = pstore "r1 : VarInt = { val = 0 }"
+  let a = Automata.fromCanon d g c m s
+  System.IO.File.WriteAllText(fn,Automata.toDot a)
+
+//[<Test>]
+let ``auto6`` () =
+  let d = pitbl "VarInt = {val:int}"
+  let g = ptyenv "cxt:void"
+  let t = ptm "while 1 do skip"
+  let c = Canonical.canonise d g t
+  let m = Move.ValM Val.VStar
   let s = pstore ""
   let a = Automata.fromCanon d g c [m] s
   System.IO.File.WriteAllText(fn,Automata.toDot a)
 
+[<Test>]
+let ``auto7`` () =
+  let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
+  let g = ptyenv "cxt:void"
+  let t = ptm "let v = new {a:VarEmpty;} in new {z:Cell; get:\x.v.val, set:\y.if y=null then skip else (v.val := y)}"
+  let c = Canonical.canonise d g t
+  let m = Move.ValM Val.VStar
+  let s = pstore ""
+  let a = Automata.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn,Automata.toDot a)
