@@ -77,7 +77,7 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
     | Cast (i,x) -> Term.Cast (i, BVar x)
     | Call (x,m,vs) -> Term.Call (BVar x, m, List.map BVar vs)
     | Fld (x,f) -> Term.VFld (x,f)
-    | While (x,b) -> Term.While (BVar x, Canon.ToTerm b)
+    | While (x,b) -> Term.While (Term.Fld (BVar x,"val"), Canon.ToTerm b)
     | NewB (x,i,ms) -> Term.New (x, i, List.map CanMeth.ToMethSpec ms)
 
 

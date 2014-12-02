@@ -8,11 +8,11 @@ open IMJEquiv
 
 let fn = System.IO.Path.Combine(__SOURCE_DIRECTORY__,"auto.dot")
 
-let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
-let g = ptyenv "v:VarEmpty, y:Empty"
-let t = ptm "if y=null then skip else (v.val := y)"
+let d = pitbl "VarInt = {val:int}"
+let g = ptyenv "cxt:void"
+let t = ptm "while 1 do skip"
 let c = Canonical.canonise d g t
-let m = [Move.ValM (Val.VReg 1); Move.ValM (Val.VReg 2)]
-let s = pstore "r1 : VarEmpty = { val = null }, r2 : Empty = {}"
-let a = Automata.fromCanon d g c m s
+let m = Move.ValM Val.VStar
+let s = pstore ""
+let a = Automata.fromCanon d g c [m] s
 System.IO.File.WriteAllText(fn,Automata.toDot a)
