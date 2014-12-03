@@ -214,13 +214,19 @@ module Store =
       match Map.tryFind l p with
       | Some r' -> if r = r' then Some p else None
       | None ->
-          let p' = Map.add l r p
-          let lty, lflds = s.[l]
-          let rty, rflds = t.[r]
-          if lty = rty then
-            Map.fold (fun popt f v -> match popt with Some p' -> checkField v rflds.[f] p' | None -> None) (Some p') lflds
-          else
+          let codp = Map.codomain p
+          if Set.contains r codp then
             None
+          else
+            let p' = Map.add l r p
+            match Map.tryFind l s, Map.tryFind r t with
+            | None, None -> Some p
+            | Some (lty, lflds), Some (rty, rflds) ->
+                if lty = rty then
+                  Map.fold (fun popt f v -> match popt with Some p' -> checkField v rflds.[f] p' | None -> None) (Some p') lflds
+                else
+                  None
+            | _, _ -> None
 
     Set.fold (fun popt r -> match popt with Some p -> aeq (r, r) p | None -> None) (Some Map.empty) fxd   
 
