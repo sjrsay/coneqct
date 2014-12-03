@@ -2,9 +2,11 @@
 
 open NUnit.Framework
 
-let fn = System.IO.Path.Combine(__SOURCE_DIRECTORY__,"auto.dot")
+let fn (n: Int) : String = 
+  let name = sprintf "auto%d.dot" n 
+  System.IO.Path.Combine(__SOURCE_DIRECTORY__, name)
 
-//[<Test>]
+[<Test>]
 let ``auto1`` () =
   let d = pitbl "I = { f: int, m:int -> int }"
   let g = ptyenv "cxt:void"
@@ -13,9 +15,9 @@ let ``auto1`` () =
   let m = Move.ValM Val.VStar
   let s = pstore ""
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 1,Automata.toDot a)
 
-//[<Test>]
+[<Test>]
 let ``auto2`` () =
   let d = pitbl "I = { f: int, m:int -> int }"
   let g = ptyenv "cxt:I"
@@ -24,9 +26,9 @@ let ``auto2`` () =
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : I = {}"
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 2,Automata.toDot a)
 
-//[<Test>]
+[<Test>]
 let ``auto3`` () =
   let d = pitbl "I = { m:int -> int }, J = { n:int -> int }"
   let g = ptyenv "cxt:J"
@@ -35,9 +37,9 @@ let ``auto3`` () =
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : J = {}"
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 3,Automata.toDot a)
 
-//[<Test>]
+[<Test>]
 let ``auto4`` () =
   let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
   let g = ptyenv "v:VarEmpty"
@@ -46,9 +48,9 @@ let ``auto4`` () =
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : VarEmpty = { val = null }"
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 4,Automata.toDot a)
 
-//[<Test>]
+[<Test>]
 let ``auto5`` () =
   let d = pitbl "VarInt = { val: int }"
   let g = ptyenv "y:VarInt"
@@ -57,9 +59,9 @@ let ``auto5`` () =
   let m = [Move.ValM (Val.VReg 1)]
   let s = pstore "r1 : VarInt = { val = 0 }"
   let a = Automata.fromCanon d g c m s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 5,Automata.toDot a)
 
-//[<Test>]
+[<Test>]
 let ``auto6`` () =
   let d = pitbl "VarInt = {val:int}"
   let g = ptyenv "cxt:void"
@@ -68,15 +70,26 @@ let ``auto6`` () =
   let m = Move.ValM Val.VStar
   let s = pstore ""
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 6,Automata.toDot a)
 
 [<Test>]
 let ``auto7`` () =
-  let d = pitbl "Empty = { }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
+  let d = pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
   let g = ptyenv "cxt:void"
-  let t = ptm "let v = new {a:VarEmpty;} in new {z:Cell; get:\x.v.val, set:\y.if y=null then skip else (v.val := y)}"
+  let t = ptm "let v = new {a:VarEmpty;} in new {z:Cell; get:\x.v.val, set:\y.if y=null then (while 1 do skip) else (v.val := y)}"
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
   let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn,Automata.toDot a)
+  System.IO.File.WriteAllText(fn 7,Automata.toDot a)
+
+[<Test>]
+let ``auto8`` () =
+  let d = pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
+  let g = ptyenv "cxt:void"
+  let t = ptm "let b = new {c:VarInt;} in let v = new {a:VarEmpty;} in let w = new {d:VarEmpty;} in new {z:Cell; get:\x.if b.val = 1 then (b.val := 0; v.val) else (b.val := 1; w.val), set:\y.if y=null then (while 1 do skip) else (v.val := y; w.val := y)}"
+  let c = Canonical.canonise d g t
+  let m = Move.ValM Val.VStar
+  let s = pstore ""
+  let a = Automata.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 8,Automata.toDot a)
