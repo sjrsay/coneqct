@@ -4,6 +4,7 @@ open System
 
 type State =
   inherit IComparable
+  abstract member UnderState : Int
 
 [<CustomComparison>]
 [<StructuralEquality>]
@@ -18,6 +19,8 @@ type IntState =
       match yobj with
       | :? IntState as y -> compare x.Val y.Val  
       | _ -> 1
+
+    member x.UnderState = x.Val
 
   override x.ToString () =
     x.Val.ToString ()
@@ -38,6 +41,8 @@ type PairState =
       match yobj with
       | :? PairState as y -> compare (x.State, x.Store) (y.State, y.Store)
       | _ -> -1
+
+    member x.UnderState = x.State.UnderState
 
   override x.ToString () =
     sprintf "(%O, %A)" x.State x.Store
@@ -1017,5 +1022,6 @@ module Automata =
              Automaton.States = a'.InitS :: List.map getSndState !accTrans
              Automaton.TransRel = !accTrans
            }
-    prune automaton  
+    let pruned = prune automaton  
+    pruned
               
