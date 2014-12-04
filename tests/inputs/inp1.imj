@@ -1,0 +1,14 @@
+
+TERM:
+Empty = { }, 
+VarEmpty = { val: Empty }, 
+Cell = { get:void -> Empty, set:Empty -> void }
+v: VarEmpty
+------------------------------------------------------
+new {z:Cell; get:\x.v.val, set:\y.if y=null then skip else (v.val := y)}
+
+MOVE: 
+  r1
+
+STORE: 
+  r1 : VarEmpty = { val = null }

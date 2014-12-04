@@ -33,3 +33,7 @@ let tytm (fn: String) (s: String) : TyEnv * Term = parse fn Parser.TyTerm s
 /// and text to be parsed `s`, `store fn s` is the store 
 /// resulting from parsing `s` or an exception.
 let store (fn: String) (s: String) : Store = parse fn Parser.Store s
+
+let input (fn: String) : ITbl * TyEnv * Term * List<Move> * Store = 
+  let str = System.IO.File.ReadAllText fn
+  parse fn Parser.Input str
