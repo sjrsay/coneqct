@@ -19,11 +19,12 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 
 %}
 
-%start Term ITbl TyEnv TyTerm Store
+%start Term ITbl TyEnv TyTerm Store Input
 
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT TIMES
 %token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE NULL
 %token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
+%token INTERFACE EXTENDS MOVE STORE BAR TERM
 %token <String> ID IID
 %token <Int32> NUM RID
 
@@ -38,6 +39,7 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 %type <TyEnv> TyEnv
 %type <TyEnv * Term> TyTerm
 %type <Store> Store
+%type <ITbl * TyEnv * Term * List<Move> * Store> Input
 
 %%
 
@@ -195,6 +197,21 @@ TyEnv:
 
 TyTerm:
   | TyEnv TSTYLE Term                               { ($1, $3) }
+
+Move:
+  | Val                                             { [Move.ValM $1] }
+  | LPAREN Moves1 RPAREN                            { $2 }
+
+Moves1:
+  | Val                                             { [Move.ValM $1] }
+  | Val COMMA Moves1                                { Move.ValM $1 :: $3 }
+
+TermInCxt:
+  | ITbl TyEnv BAR Term                             { ($1, $2, $4) }
+
+Input:
+  | TERM TermInCxt MOVE Move STORE Store            { (fst $2, $3, $5, $7, $9) }
+  | MOVE Move STORE Store TERM 
 
 Recover:
   | error                                           { true }
