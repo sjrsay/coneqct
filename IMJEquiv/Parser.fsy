@@ -39,7 +39,7 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 %type <TyEnv> TyEnv
 %type <TyEnv * Term> TyTerm
 %type <Store> Store
-%type <ITbl * TyEnv * Term * List<Move> * Store> Input
+%type <Cxt * Term * List<Move> * Store> Input
 
 %%
 
@@ -149,6 +149,7 @@ IDfnMapContent1:
 
 ITblDfn:
   | IID EQUALS IDfnMap                              { ($1, Eqn $3) }
+  | IID Recover                                     { reportError parseState "Malformed interface definition" 2}
   | IID LANGLE IID RANGLE EQUALS IDfnMap            { ($1, Ext ($3,$6)) } 
 
 ITbl:
@@ -206,12 +207,24 @@ Moves1:
   | Val                                             { [Move.ValM $1] }
   | Val COMMA Moves1                                { Move.ValM $1 :: $3 }
 
+Cxt:
+  |                                                 { [] }
+  | ITblDfn                                         { [IFaceDef $1] }
+  | ITblDfn COMMA Cxt                               { IFaceDef $1 :: $3 }
+  | ID COLON Type                                   { [Typing ($1, $3)] }
+  | ID COLON Type COMMA Cxt                         { Typing ($1, $3) :: $5 }
+
 TermInCxt:
-  | ITbl TyEnv BAR Term                             { ($1, $2, $4) }
+  | Cxt BAR Term                                    { ($1, $3) }
+  | Cxt Recover                                     { reportError parseState "Expected bar" 2 }
 
 Input:
-  | TERM TermInCxt MOVE Move STORE Store            { (fst $2, $3, $5, $7, $9) }
-  | MOVE Move STORE Store TERM 
+  | TERM TermInCxt MOVE Move STORE Store            { (fst $2, snd $2, $4, $6) }
+  | Recover                                         { reportError parseState "Expected \"TERM:\"" 1 }
+  | TERM TermInCxt Recover                          { reportError parseState "Expected \"MOVE:\"" 3 }
+  | TERM TermInCxt MOVE Recover                     { reportError parseState "Expected move" 4 }
+  | TERM TermInCxt MOVE Move Recover                { reportError parseState "Expected \"STORE:\"" 5 }
+
 
 Recover:
   | error                                           { true }

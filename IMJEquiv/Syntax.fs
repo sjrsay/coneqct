@@ -61,6 +61,12 @@ and [<StructuredFormatDisplay("{Show}")>] MethSpec =
   override x.ToString () : String =
     sprintf "%s: \\%s.%O" x.Name (List.toStringWithDelims "" " " "" x.Vars) x.Body
 
+type CxtItem = 
+  | IFaceDef of IntId * ITblDfn
+  | Typing of Ident * Ty
+
+type Cxt = List<CxtItem>
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Term =
 
@@ -143,3 +149,13 @@ module Term =
         false
 
     alpha Map.empty Map.empty s t
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Cxt = 
+
+  let separate (c:Cxt) : ITbl * TyEnv =
+    let distinguish (ci: CxtItem) (m: ITbl, e: TyEnv) =
+      match ci with
+      | IFaceDef (i, d) -> (Map.add i d m, e)
+      | Typing (x, t) -> (m, (x,t)::e)
+    List.foldBack distinguish c (Map.empty, [])
