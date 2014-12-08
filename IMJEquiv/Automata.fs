@@ -92,35 +92,41 @@ module Automata =
     | PermT (q,_,_)
     | LabelT (q,_,_) -> q
 
+
+  /// Given an automaton `a`, `prune a` is the sub-automaton of
+  /// `a` consisting only of reachable structure
   let prune (a: Automaton) : Automaton =
-    let addSuccs (rqs: Set<State>) (acc: List<State>) (q: State) = 
+    // Implemented with a hashset due to efficiency problem
+    let rqs = HashSet ()
+    let addSuccs (acc: List<State>) (q: State) = 
       let addNew (acc: List<State>) (t: Transition) : List<State> =
         if getFstState t = q then
           let q' = getSndState t
-          if not (Set.contains q' rqs) then q'::acc else acc
+          if not (rqs.Contains q') then (ignore (rqs.Add q'); q'::acc) else acc
         else
           acc
       List.fold addNew acc a.TransRel
-    // frontier is always a subset of rqs
-    let rec reachable (rqs: Set<State>) (frontier : List<State>) : Set<State> =
+    // List `frontier` is always a subset of rqs
+    let rec reachable (frontier : List<State>) : Unit =
       match frontier with
-      | [] -> rqs
+      | [] -> ()
       | _::_ ->
-          let frontier' = List.fold (addSuccs rqs) [] frontier
-          let rqs' = List.fold (fun acc q -> Set.add q acc) rqs frontier'
-          reachable rqs' frontier'
-    let rqs = reachable (Set.singleton a.InitS) [a.InitS]
-    let rts = List.filter (fun t -> Set.contains (getFstState t) rqs) a.TransRel
-    let rfs = List.filter (fun q -> Set.contains q rqs) a.Final
-    let row = Map.restrict a.Owner rqs
-    let rrk = Map.restrict a.Rank rqs
+          let frontier' = List.fold addSuccs [] frontier
+          reachable frontier'
+
+    let _ = rqs.Add a.InitS
+    let _ = reachable [a.InitS]
+    let rts = List.filter (fun t -> rqs.Contains (getFstState t)) a.TransRel
+    let rfs = List.filter (fun q -> rqs.Contains q) a.Final
+    let row = Map.restrict a.Owner (Set.ofSeq rqs)
+    let rrk = Map.restrict a.Rank (Set.ofSeq rqs)
     {
       Automaton.Final    = rfs
       Automaton.InitR    = a.InitR
       Automaton.InitS    = a.InitS
       Automaton.Owner    = row
       Automaton.Rank     = rrk
-      Automaton.States   = Set.toList rqs
+      Automaton.States   = List.ofSeq rqs
       Automaton.TransRel = rts
     }
 
@@ -940,10 +946,10 @@ module Automata =
              let iState  = c1s.[s].InitS
              let fStates = Set.toList <| List.fold (fun xs t -> Set.add (getSndState t) xs) Set.empty c2sFinals
              let transs  = c2sTrans @ c2sFinals @ !newC1sTrans
-             let owner   = Map.fold (fun owner _ (a:Automaton) -> Map.union a.Owner owner) Map.empty c1s
-             let owner'  = Map.fold (fun owner' _ (a:Automaton) -> Map.union a.Owner owner') owner c2s
-             let rank   = Map.fold (fun rank _ (a:Automaton) -> Map.union a.Rank rank) Map.empty c1s
-             let rank'  = Map.fold (fun rank' _ (a:Automaton) -> Map.union a.Rank rank') rank c2s
+             let owner   = Map.fold (fun owner _ (a:Automaton) -> Map.union owner a.Owner) Map.empty c1s
+             let owner'  = Map.fold (fun owner' _ (a:Automaton) -> Map.union owner' a.Owner ) owner c2s
+             let rank   = Map.fold (fun rank _ (a:Automaton) -> Map.union rank a.Rank) Map.empty c1s
+             let rank'  = Map.fold (fun rank' _ (a:Automaton) -> Map.union rank' a.Rank) rank c2s
              {
                States   = aStates
                Owner    = owner'
