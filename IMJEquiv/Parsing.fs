@@ -36,4 +36,6 @@ let store (fn: String) (s: String) : Store = parse fn Parser.Store s
 
 let input (fn: String) : ITbl * TyEnv * Term * List<Move> * Store = 
   let str = System.IO.File.ReadAllText fn
-  parse fn Parser.Input str
+  let cxt, tm, mu, s = parse fn Parser.Input str
+  let d, g = Cxt.separate cxt
+  (d, g, tm, mu, s)

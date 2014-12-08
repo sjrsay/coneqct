@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IMJEquiv", "IMJEquiv\IMJEquiv.fsproj", "{4168AAD1-641A-463D-A058-17D1AEE22D7A}"
 EndProject
@@ -15,6 +15,12 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IMJEquivTests", "tests\IMJEquivTests\IMJEquivTests.fsproj", "{A295E719-D70C-45C8-A23C-FF1BC01C0762}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{99A31498-3C17-40CB-AA48-5CDC34AA060A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inputs", "Inputs", "{148761AE-9888-4EE9-A8A0-98655AAF4880}"
+	ProjectSection(SolutionItems) = preProject
+		tests\inputs\inp1.imj = tests\inputs\inp1.imj
+		tests\inputs\inp2.imj = tests\inputs\inp2.imj
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -77,5 +83,9 @@ Global
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A295E719-D70C-45C8-A23C-FF1BC01C0762} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
+		{148761AE-9888-4EE9-A8A0-98655AAF4880} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal
