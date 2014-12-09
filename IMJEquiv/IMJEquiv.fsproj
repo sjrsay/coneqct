@@ -72,6 +72,7 @@
     <Compile Include="Move.fs" />
     <Compile Include="Store.fs" />
     <Compile Include="Automata.fs" />
+    <Compile Include="Product.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Parsing.fs" />
