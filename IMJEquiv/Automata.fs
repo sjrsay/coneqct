@@ -627,81 +627,28 @@ module Automata =
             Rank = rank
           }
        | Let (x, NullL ty, c) ->
-          let q0 = newState ()
           let mu' = List.append mu  [ValM VNul]
           let g' = List.append g [(x, ty)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          }
+          cAuto
        | Let (x, CanLet.Num i, c) ->
-          let q0 = newState ()
           let mu' = List.append mu  [ValM (VNum i)]
           let g' = List.append g [(x, Int)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          }
+          cAuto
        | Let (x, Skip, c) ->
-          let q0 = newState ()
           let mu' = List.append mu  [ValM VStar]
           let g' = List.append g [(x, Ty.Void)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          } 
+          cAuto
        | Let (x, Plus (y,z), c) ->
-          let q0 = newState ()
           let (ValM (VNum yval)) = mu.[Types.getPosInTyEnv y g]
           let (ValM (VNum zval)) = mu.[Types.getPosInTyEnv z g]
           let mu' = List.append mu  [ValM (VNum (yval + zval))]
           let g' = List.append g [(x, Int)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          }
+          cAuto
        | Let (y, Eq (x1, x2), c) -> 
-          let q0 = newState ()
           let cmp = 
             match mu.[Types.getPosInTyEnv x1 g], mu.[Types.getPosInTyEnv x2 g] with
             | ValM (VNum i), ValM (VNum j) -> if i = j then 1 else 0
@@ -711,19 +658,7 @@ module Automata =
           let mu' = List.append mu  [ValM (VNum cmp)]
           let g' = List.append g [(y, Int)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          }
+          cAuto
        | Let (y, Cast (i, x), c) ->
            let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv x g]
            let j, _ = s.[rk']
@@ -744,7 +679,6 @@ module Automata =
                Rank = rank
              }
        | Let (y, Fld (x,f), c) -> 
-          let q0 = newState ()
           let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv x g]
           let (i,m) = s.[rk']
           let v  = m.[f]
@@ -752,19 +686,7 @@ module Automata =
           let mu' = List.append mu  [ValM v]
           let g' = List.append g [(y, ty)]
           let cAuto = fromCanon d g' c mu' s
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            SetT (q0, set cAuto.InitR, cAuto.InitS)
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = cAuto.InitR
-            Final = cAuto.Final
-            Rank = rank
-          }
+          cAuto
        | Let (x, CanLet.Call (y,m,zs), c) ->
           let (Iface yi) = Types.getTyfromTyEnv y g
           let (_, xty) = Types.ofMeth d yi m

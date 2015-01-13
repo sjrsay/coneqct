@@ -87,6 +87,7 @@ let main _ =
       | Parser.ParseError (s,l,c) -> exitWith (sprintf "Parse Error %d:%d: %s." l c s)
     do checkInitialConditions d g mu s
     let c = Canonical.canonise d g t
+    printf "%A\n" c
     let a = Automata.fromCanon d g c mu s
     let dot = Automata.toDot a
     System.IO.File.WriteAllText(!outputFile, dot)
