@@ -73,6 +73,7 @@
     <Compile Include="Store.fs" />
     <Compile Include="Automata.fs" />
     <Compile Include="Product.fs" />
+    <Compile Include="FPDRS.fs" />
     <Compile Include="Explosion.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
