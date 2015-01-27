@@ -4,7 +4,6 @@ open System
 
 type State =
   inherit IComparable
-  abstract member UnderState : Int
 
 [<CustomComparison>]
 [<StructuralEquality>]
@@ -19,8 +18,6 @@ type IntState =
       match yobj with
       | :? IntState as y -> compare x.Val y.Val  
       | _ -> 1
-
-    member x.UnderState = x.Val
 
   override x.ToString () =
     x.Val.ToString ()
@@ -41,8 +38,6 @@ type PairState =
       match yobj with
       | :? PairState as y -> compare (x.State, x.Store) (y.State, y.Store)
       | _ -> -1
-
-    member x.UnderState = x.State.UnderState
 
   override x.ToString () =
     sprintf "(%O, %A)" x.State x.Store
@@ -79,6 +74,12 @@ type Automaton =
  }
 
 module Automata = 
+
+  let labelOfTLabel (t: TransLabel) : Label =
+    match t with
+    | Push (_,l,_,_) 
+    | Pop  (_,l,_,_,_)
+    | Noop (_,l)       -> l
 
   let getSndState (t: Transition) : State =
     match t with
@@ -952,4 +953,15 @@ module Automata =
            }
     let pruned = prune automaton  
     pruned
-              
+    
+    
+  let numRegs (a: Automaton) : Int =
+    let doTrans regs t =
+      match labelOfTrans t with
+      | None -> regs
+      | Some l ->
+          let rs = labelSupp l
+          Set.union regs rs
+    let regs = 
+      List.fold doTrans Set.empty a.TransRel
+    Set.count regs
