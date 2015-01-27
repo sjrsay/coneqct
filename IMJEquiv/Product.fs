@@ -22,11 +22,13 @@ type Transition2 = State2 * TLabel2 * State2
 
 type Automaton2 =
   {
-    States: List<State2>
-    Owner: State2 -> Player
-    InitS: State2
-    Trans: List<Transition2>
-    Final: List<State2>
+    States:  List<State2>
+    Owner:   State2 -> Player
+    Rank:    Map<State2,Store * Store>
+    InitS:   State2
+    Trans:   List<Transition2>
+    Final:   List<State2>
+    NumRegs: Int
   }
 
 module Product =
@@ -95,11 +97,27 @@ module Product =
     let div2 = List.map (fun x -> Div2 x) a2.States
     let init = Sim (a1.InitS, a2.InitS)
     let final = div1 @ div2
+    let states = simO @ simP @ final
+    let rank =
+      let rankPairState (m: Map<State2,Store * Store>) (q: State2) =
+        match q with
+        | Sim (q1, q2) -> Map.add q (a1.Rank.[q1], a2.Rank.[q2]) m
+        | Div1 q1 -> Map.add q (a1.Rank.[q1], a1.Rank.[q1]) m
+        | Div2 q2 -> Map.add q (a2.Rank.[q2], a2.Rank.[q2]) m
+      List.fold rankPairState Map.empty states
+    let numRegs1 = Automata.numRegs a1
+    let numRegs2 = Automata.numRegs a2
     {
-      States = simO @ simP @ final
-      Owner  = owner
-      InitS  = init
-      Trans  = !trans
-      Final  = final
+      States  = states
+      Owner   = owner
+      Rank    = rank
+      InitS   = init
+      Trans   = !trans
+      Final   = final
+      NumRegs = numRegs1 + numRegs2
     }
+
+  let transFromState (a: Automaton2) (q: State2) : List<Transition2> =
+    List.filter (fun (q1,_,_) -> q = q1) a.Trans
+
 
