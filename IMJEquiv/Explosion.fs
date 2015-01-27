@@ -1,7 +1,6 @@
 ﻿namespace IMJEquiv
 open IMJEquiv
 
-
 type Letter = Int
 
 type Flag =
@@ -15,26 +14,22 @@ type ExtLet =
 type Assn = Map<Int,ExtLet>
 
 type FState = {
-    Control: State           
-    Registers: Array<ExtLet>   
-    Store: Store
+    Control:    SpanState           
+    Assignment: Array<ExtLet>   
   }
 
-type FTransition =
-  | Eps of FState * FState
-  | Push of FState * FState * Store * Assn
-  | Pop of FState * FState * Store * Set<Int> * Set<Int>
+type FTLabel =
+  | Eps
+  | Push of (StackConst * Assn) * (StackConst * Assn)
+  | Pop of (StackConst * Assn) * (StackConst * Assn)
+
+type FTransition = FState * FTLabel * FState
 
 type PDA = {
     States: List<FState>
     Trans: List<FTransition>
-  }
-
-type EIMJConfig = {
-    State: State
-    Owner: Player
-    Assignment: Array<ExtLet>
-    Stack: List<Store * Assn>
+    Initial: FState
+    Finals: List<FState>
   }
 
 module Explosion =
@@ -113,23 +108,107 @@ module Explosion =
     | P -> O
     | O -> P
 
-  let successors (sz: Int) (conf: EIMJConfig) (t: Transition) : List<Move * Store * EIMJConfig> =
-    match t with
-    | LabelT (q1, tl, q2) ->
-        let flg = playerToFlag conf.Owner 
-        match tl with
-        | Noop (x, (m, s)) ->
-            [
-              for rho' in refresh sz x flg conf.Assignment do
-                let m' = assignToMove rho' m
-                let s' = assignToStore rho' s
-                let conf' = { 
-                    conf with State = q2; Owner = alternate conf.Owner; Assignment = rho'
-                  }
-                yield (m', s', conf')
-            ]
+  let setFlag (f: Flag) (e: ExtLet) : ExtLet =
+    match e with
+    | Empty -> Empty
+    | Content (l,_) -> Content (l,f)
 
-//  let fromProduct (sz: Int) (a: Automaton2) =
-//    let alphabet = [1..sz]
+  let makeLocal (xs: Set<RegId>) (ass: Array<ExtLet>) : Array<ExtLet> =
+    Array.mapi (fun i a -> if Set.contains i xs then setFlag Local a else a) ass
+
+  let allLocal (xs: Set<RegId>) (ass: Array<ExtLet>) : Bool =
+    let isLocal (e: ExtLet) : Bool =
+      match e with
+      | Empty         -> true  
+      | Content (_,f) -> f = Local
+    Set.forall (fun i -> isLocal ass.[i]) xs
+
+  let globals (xs: Set<RegId>) : List<Map<RegId,Flag>> =
+    let rec gs ys =
+      match ys with
+      | []     -> [Map.empty]
+      | y::ys' ->
+          [
+            for m in gs ys' do
+              for f in [Local; Global] do
+                yield Map.add y f m
+          ]
+    gs (Set.toList xs)
+
+  let successors (sz: Int) (q: FState) ((q1,tl,q2): Trans) : List<FTransition * FState> =
+    let cut y rho = Array.foldi (fun m i l -> if Set.contains i y then Map.add i l m else m) Map.empty rho
+    match tl with
+    | TLabel.Noop x ->
+        let flg = playerToFlag q1.Owner
+        [
+          for rho' in refresh sz x flg q.Assignment do
+            let q' = { Control = q2; Assignment = rho' }
+            let t' = (q, Eps, q')
+            yield (t', q')
+        ]
+    | TLabel.Cut x ->
+        let rho' = Array.mapi (fun i l -> if Set.contains i x then Empty else l) q.Assignment
+        let q'   = { Control = q2; Assignment = rho' }
+        [(q,Eps,q'),q']
+    | TLabel.Eps -> 
+        let q' = { q with Control = q2 }
+        [(q,Eps,q'), q']
+    | TLabel.Push (x, (p1,y1),(p2,y2)) ->
+        let flg = playerToFlag q1.Owner
+        let rhoy1 = cut y1 q.Assignment
+        let rhoy2 = cut y2 q.Assignment
+        [
+          for rho' in refresh sz x flg q.Assignment do
+            let rho'' = makeLocal (y1 + y2) rho'
+            let q' = { Control = q2; Assignment = rho'' }
+            yield ((q, Push ((p1,rhoy1),(p2,rhoy2)), q'), q')
+        ]
+    | TLabel.Pop (lfrs, gfrs, (p1,y1), (p2,y2)) ->
+        if not (allLocal (y1+y2) q.Assignment) then 
+          []
+        else
+          let flg  = playerToFlag q1.Owner
+          let exts = globals (y1+y2) 
+          [
+            for rho' in refresh sz lfrs Local q.Assignment do
+              for rho'' in refresh sz gfrs Global  rho' do
+                let rho''y1 = cut y1 rho''
+                let rho''y2 = cut y2 rho''
+                for ext in exts do
+                  let rho''y1g = Map.map (fun r l -> setFlag ext.[r] l) rho''y1
+                  let rho''y2g = Map.map (fun r l -> setFlag ext.[r] l) rho''y1
+                  let rho''g = Array.mapi (fun r l -> setFlag ext.[r] l) rho''
+                  let q' = { Control = q2; Assignment = rho''g }
+                  yield ((q, Pop ((p1,rho''y1g),(p2,rho''y2g)), q'), q')
+          ]
+        
+
+  let fromFPDRS (sz: Int) (a: FPDRS) (q0: FState) : PDA =
+    let trans = ref []
+    let states = HashSet ()
+
+    let rec fix (fr: List<FState>) : Unit =
+      if not (List.isEmpty fr) then
+        let newFr = [
+            for q in fr do
+              for (q1,tl,q2) as t in a.Transitions do
+                let succs = if q.Control = q1 then successors sz q t else []
+                for (t',q') in succs do
+                  do trans := t' :: !trans
+                  let b = states.Add q'
+                  if b then yield q'
+          ]
+        fix newFr
+
+    let _ = states.Add q0
+    do fix [q0]
+
+    let finals = [ for q in states do if List.contains q.Control a.Finals then yield q ] 
+    {
+      States  = List.ofSeq (states :> Seq<FState>)
+      Trans   = !trans
+      Initial = q0
+      Finals  = finals
+    }
 
 
