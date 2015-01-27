@@ -2,11 +2,13 @@
 TERM:
 Empty = { }, 
 VarEmpty = { val: Empty }, 
+VarInt = { val: int },
 Cell = { get:void -> Empty, set:Empty -> void },
 cxt:void
 ------------------------------------------------------
+
 let v = new {a:VarEmpty;} in
-new {z:Cell; get:\x.v.val, set:\y.if y=null then skip else (v.val := y)}
+new {z:Cell; get:\x.v.val, set:\y.if y=null then (while 1 do skip) else (v.val := y)}
 
 MOVE: 
   *
