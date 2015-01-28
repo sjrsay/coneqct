@@ -281,10 +281,10 @@ module PDRS =
             let free1 = Set.difference y1 z1
             let free2 = Set.difference y2 z2
             let popSpans = newSpans n O free1 free2 q.Span
-            let freshSpans = [
+            let freshSpans = seq {
                 for psp in popSpans do
                   yield! newSpans n q.Owner xs1 xs2 psp
-              ]
+              }
             let goodSpans = Seq.fold (collectGoodSpans l1 l2) [] freshSpans
             let newTrans = [
                 for (sp, st) in goodSpans do
