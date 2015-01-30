@@ -25,5 +25,9 @@ module Helpers =
     try Parsing.store "" t with
     | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
 
+  let pmove t =
+    try Parsing.move "" t with
+    | Parser.ParseError (s,l,c) -> failwithf "Parse Error %d:%d: %s." l c s
+
   let AssertAlphaEqual (s: Term, t: Term) : Unit =
     if not (Term.alphaEq s t) then Assert.Fail ("Expected: {0}\n But was: {1}\n", s, t)

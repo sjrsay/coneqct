@@ -163,7 +163,7 @@ module Explosion =
             let q' = { Control = q2; Assignment = rho'' }
             yield ((q, Push ((p1,rhoy1),(p2,rhoy2)), q'), q')
         ]
-    | TLabel.Pop (lfrs, gfrs, (p1,y1), (p2,y2)) ->
+    | TLabel.Pop (lfrs, (p1,y1), (p2,y2)) ->
         if not (allLocal (y1+y2) q.Assignment) then 
           []
         else
@@ -171,19 +171,20 @@ module Explosion =
           let exts = globals (y1+y2) 
           [
             for rho' in refresh sz lfrs Local q.Assignment do
-              for rho'' in refresh sz gfrs Global  rho' do
-                let rho''y1 = cut y1 rho''
-                let rho''y2 = cut y2 rho''
-                for ext in exts do
-                  let rho''y1g = Map.map (fun r l -> setFlag ext.[r] l) rho''y1
-                  let rho''y2g = Map.map (fun r l -> setFlag ext.[r] l) rho''y1
-                  let rho''g = Array.mapi (fun r l -> setFlag ext.[r] l) rho''
-                  let q' = { Control = q2; Assignment = rho''g }
-                  yield ((q, Pop ((p1,rho''y1g),(p2,rho''y2g)), q'), q')
+              let rho'y1 = cut y1 rho'
+              let rho'y2 = cut y2 rho'
+              for ext in exts do
+                let rho'y1g = Map.map (fun r l -> setFlag ext.[r] l) rho'y1
+                let rho'y2g = Map.map (fun r l -> setFlag ext.[r] l) rho'y1
+                let rho'g = Array.mapi (fun r l -> setFlag ext.[r] l) rho'
+                let q' = { Control = q2; Assignment = rho'g }
+                yield ((q, Pop ((p1,rho'y1g),(p2,rho'y2g)), q'), q')
           ]
         
 
-  let fromFPDRS (sz: Int) (a: FPDRS) (q0: FState) : PDA =
+  let fromFPDRA (a: FPDRA) : PDA =
+    let sz = 3 * a.NumRegs
+
     let trans = ref []
     let states = HashSet ()
 
@@ -200,6 +201,17 @@ module Explosion =
           ]
         fix newFr
 
+    let initRegMap = a.Initial.Span.Left // = Right, initially
+    let initAssigned = Map.codomain initRegMap
+    let letter = ref 0
+    let assign (i:Int) =
+      if Set.contains i initAssigned then
+        do incr letter
+        Content (!letter, Global)
+      else
+        Empty
+    let rho0 = Array.init a.NumRegs assign
+    let q0 = { Control = a.Initial; Assignment = rho0 }
     let _ = states.Add q0
     do fix [q0]
 

@@ -920,7 +920,6 @@ module Automata =
            let mu' = mu @ [ValM (VReg rk)]
            let s0' = Map.union s r0
            let ac' = fromCanon d g' c' mu' s0' 
-           System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__,"auto1.dot"),toDot ac')
            let a' = nu d ac' r0
            let trans, rank, owner, qfs, ss = mkMethodsAutomaton d g x' rk i mu tyZ0 mths
            let ftrans, rest = List.partition (fun tr -> isFinalTrans a' tr) a'.TransRel

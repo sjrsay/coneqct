@@ -25,3 +25,30 @@ module Move =
         List.fold (fun rvs v -> Set.union (Val.supp v) rvs) (Set.singleton r) vs
     | Ret (r,mth,v) ->
         Set.add r (Val.supp v)
+
+
+  /// Given register index `rnum` and type environment `g`, 
+  /// with `g = [x_1:t_1, ..., x_n:t_n]`, `ofContext rnum g` is
+  /// `[m_1, ..., m_2]` with `m_i` a possible initial move
+  /// corresponing to the `x_i:t_i`.  If `t_i` is an interface
+  /// then `m_i` is determined as the move `ValM (VReg r)`
+  /// where `r` is the smallest register number not occurring
+  /// in `[m_1, ..., m_{i-1}]` that is no smaller than `rnum`.
+  let ofContext (rnum: Int) (g: TyEnv) : List<List<Move>> =
+
+    let allOfTy (r: Int) (ty: Ty) : Int * List<Val> =
+      match ty with
+      | Void -> (r, [VStar])
+      | Int  -> (r, [for i in 0 .. Val.maxint do yield VNum i])
+      | Iface i -> (r+1, [VReg r])
+    
+    let rec mkMoves r gs =
+      match gs with
+      | [] -> [[]]
+      | (x,ty)::gs' ->
+          let r', vs = allOfTy r ty
+          [for v in vs do for ms in mkMoves r' gs' do yield ValM v :: ms]
+    
+    match g with
+    | []   -> [[ValM VStar]]
+    | _::_ -> mkMoves rnum g

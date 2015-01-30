@@ -29,11 +29,12 @@ type Automaton2 =
     Trans:   List<Transition2>
     Final:   List<State2>
     NumRegs: Int
+    InitC:   List<Move> * Store
   }
 
 module Product =
 
-  let fromAutomata (a1: Automaton) (a2: Automaton) : Automaton2 =
+  let fromAutomata (mu: List<Move>, s: Store) (a1: Automaton) (a2: Automaton) : Automaton2 =
     let a1OStates, a1PStates = 
       Map.partition (fun _ v -> v = O) a1.Owner
       |> fun (x,y) -> (Map.domainList x, Map.domainList y)
@@ -115,6 +116,7 @@ module Product =
       Trans   = !trans
       Final   = final
       NumRegs = numRegs1 + numRegs2
+      InitC   = (mu,s)
     }
 
   let transFromState (a: Automaton2) (q: State2) : List<Transition2> =

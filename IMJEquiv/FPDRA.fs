@@ -35,35 +35,42 @@ type TLabel =
   | Cut of Set<RegId>
   | Noop of Set<RegId>
   | Push of Set<RegId> * PushData * PushData
-  | Pop of Set<RegId> * Set<RegId> * PopData * PopData
+  | Pop of Set<RegId> * PopData * PopData
   | Eps 
 
 type Trans = SpanState * TLabel * SpanState
 
-type FPDRS =
+type FPDRA =
   {
     States: List<SpanState>
     Finals: List<SpanState>
     Initial: SpanState
     Transitions: List<Trans>
+    NumRegs: Int
   }
 
 type Freshness = Player
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module PDRS =
+module FPDRA =
 
-  let newHalfSpans (m: Map<RegId,RegId>) (xs: List<RegId>) (avail: Set<Int>)  : Seq<Map<RegId,RegId>> =
-    let rec nsp m xs ns =
+  let newHalfSpans (m: Map<RegId,RegId>) (xs: List<RegId>) (usd: Set<Int>, fr: Set<Int>)  : Seq<Map<RegId,RegId>> =
+    let rec nsp m xs (ud, fr) =
       match xs with
       | []    -> Seq.singleton m
       | y::ys -> 
+          let f = Set.minElement fr
           seq { 
-            for i in ns do
-              for m' in nsp m ys (Set.remove i ns) do
-                yield Map.add y i m' 
+            for b in [true;false] do  // choose whether to add something fresh or not
+              if b then 
+                for m' in nsp m ys (ud, Set.remove f fr) do
+                  yield Map.add y f m' 
+              else
+                for i in ud do
+                  for m' in nsp m ys (Set.remove i ud, fr) do
+                    yield Map.add y i m' 
           }
-    nsp m xs avail
+    nsp m xs (usd, fr)
     
   let newSpans (n: Int) (fr: Freshness) (xs1: Set<RegId>) (xs2: Set<RegId>) (sp: Span) : Seq<Span> =
     let xs1' = Set.toList xs1
@@ -72,17 +79,26 @@ module PDRS =
     let ls = Set.difference (set {1..n}) ranL
     let ranR = Map.codomain sp.Right
     let rs = Set.difference (set {1..n}) ranR
+    let avail = Set.intersect ls rs
     let newLs, newRs = 
       match fr with
-      | O -> (newHalfSpans sp.Left xs1' ls, newHalfSpans sp.Right xs2' rs)
-      | P -> 
-          let avail = Set.intersect ls rs
-          let lspans = newHalfSpans sp.Left xs1' avail
+      | O -> 
+          let lspans = newHalfSpans sp.Left xs1' (ls - avail,avail)
           let rspans = seq {
               for m in lspans do
                 let ls' = Map.codomain m
-                let avail' = Set.difference avail ls'
-                yield! newHalfSpans sp.Right xs2' avail'
+                let avail' = avail - ls'
+                yield! newHalfSpans sp.Right xs2' (rs - avail',avail')
+            }
+          (lspans,rspans)
+      | P -> 
+          let lspans = newHalfSpans sp.Left xs1' (Set.empty, avail) // Globally fresh implies no used names allowed
+          let rspans = seq {
+              for m in lspans do
+                let ranL' = Map.codomain m
+                let fr  = ranL' - ranL
+                let avail' = avail - fr
+                yield! newHalfSpans sp.Right xs2' (fr, avail')
             }
           (lspans, rspans)
     seq {
@@ -185,10 +201,10 @@ module PDRS =
           match xs with
           | [] -> 
               let (Sim (q1, q2)) = q.State
-              let q1' = { q with State = Div1 q1 }
-              let q2' = { q with State = Div2 q2 }
               let xs1 = Map.codomain q.Span.Left
               let xs2 = Map.codomain q.Span.Right
+              let q1' = { q with State = Div1 q1; Store = Map.restrict q.Store xs1; Span = { q.Span with Right = Map.empty } }
+              let q2' = { q with State = Div2 q2; Store = Map.restrict q.Store xs2; Span = { q.Span with Left = Map.empty } }
               let t1 = (q, Cut xs1, q1')
               let t2 = (q, Cut xs2, q2')
               [ (t1, q1'); (t2, q2') ]
@@ -200,7 +216,7 @@ module PDRS =
           let xs' = Set.toList xs
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
-          let freshSpans = newHalfSpans (pi q.Span) xs' avail
+          let freshSpans = newHalfSpans (pi q.Span) xs' (Set.empty,avail)
           [
             for sp in freshSpans do
               let st = importStore sp (snd l) 
@@ -213,7 +229,7 @@ module PDRS =
           let xs' = Set.toList xs
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
-          let freshSpans = newHalfSpans (pi q.Span) xs' avail
+          let freshSpans = newHalfSpans (pi q.Span) xs' (Set.empty, avail)
           [
             for sp in freshSpans do
               let st = importStore sp (snd l)
@@ -228,11 +244,11 @@ module PDRS =
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
           let free = Set.difference y z
-          let popSpans = newHalfSpans (pi q.Span) (Set.toList free) avail
+          let popSpans = newHalfSpans (pi q.Span) (Set.toList free) (Set.empty, avail)
           let freshSpans = [
               for m in popSpans do
                 let freeRange = Set.map (fun r -> m.[r]) free
-                yield! newHalfSpans m xs' (Set.difference avail freeRange)
+                yield! newHalfSpans m xs' (Set.empty,Set.difference avail freeRange)
             ]
           [
             for sp in freshSpans do
@@ -240,16 +256,8 @@ module PDRS =
               let sp' = mkSpan sp
               let q' = { State = q2; Span = sp'; Store = st; Owner = pl }
               let fr = fresh sp'
-              let lfrs, gfrs =
-                match q.Owner with
-                | P -> 
-                    let frs = Set.map (fun r -> (pi sp').[r]) free
-                    let lfrs = Set.intersect fr frs
-                    let gfrs = Set.difference fr lfrs
-                    (lfrs, gfrs)
-                | O -> (fr, Set.empty)
               let y' = Set.map (fun r -> (pi sp').[r]) y
-              yield ((q, Pop (lfrs, gfrs, (p,y), (p,Set.empty)), q'), q')
+              yield ((q, Pop (fr, (p,y), (p,Set.empty)), q'), q')
           ]
 
     match tl with
@@ -290,18 +298,9 @@ module PDRS =
                 for (sp, st) in goodSpans do
                   let q'  = mkq2 sp st
                   let fr  = fresh sp
-                  let lfrs, gfrs =
-                    match q.Owner with
-                    | P -> 
-                        let fr1s = Set.map (fun r -> sp.Left.[r]) free1
-                        let fr2s = Set.map (fun r -> sp.Right.[r]) free2
-                        let lfrs = Set.intersect fr (fr1s + fr2s)
-                        let gfrs = Set.difference fr lfrs
-                        (lfrs, gfrs)
-                    | O -> (fr, Set.empty)
                   let y1' = Set.map (fun r -> sp.Left.[r]) y1
                   let y2' = Set.map (fun r -> sp.Right.[r]) y2
-                  yield ((q, Pop (lfrs, gfrs, (p1,y1'),(p2,y2')), q'), q')
+                  yield ((q, Pop (fr, (p1,y1'),(p2,y2')), q'), q')
               ]
             divergeIfNecessary tl1 tl2 newTrans
         | _, _ -> divergeIfNecessary tl1 tl2 []
@@ -350,9 +349,9 @@ module PDRS =
         [(q, Eps, q'), q']
 
 
-  let fromProduct (a: Automaton2) (sp: Span) (st: Store) : FPDRS =
+  let fromProduct (a: Automaton2) : FPDRA =
     
-    let trans = ref []
+    let trans = HashSet ()
     let states = HashSet ()
 
     let rec fix (fr: List<SpanState>) : Unit =
@@ -363,12 +362,16 @@ module PDRS =
                 let pl = a.Owner q2
                 let news = transFromTrans a.NumRegs q t pl
                 for t',q' in news do
-                  do trans := t' :: !trans
+                  let _ = trans.Add t'
                   let notSeen = states.Add q'
                   if notSeen then yield q'
           ]
         fix newFr
 
+    let st = snd a.InitC
+    let regs = Store.supp st
+    let deltaMap = Set.fold (fun m r -> Map.add r r m) Map.empty regs
+    let sp = { Left = deltaMap; Right = deltaMap }
     let q0 = { State = a.InitS; Span = sp; Store = st; Owner = a.Owner a.InitS }
     let _ = states.Add q0
     do fix [q0]
@@ -376,9 +379,10 @@ module PDRS =
     let finals = [ for q in states do if List.contains q.State a.Final then yield q ]
 
     {
-      States = List.ofSeq (states :> Seq<SpanState>)
+      States = List.ofSeq states
       Finals = finals
-      Transitions = !trans
+      Transitions = List.ofSeq trans
       Initial = q0
+      NumRegs = a.NumRegs
     }
       

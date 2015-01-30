@@ -83,6 +83,7 @@ let ``auto7`` () =
   let a = Automata.fromCanon d g c [m] s
   System.IO.File.WriteAllText(fn 7,Automata.toDot a)
 
+[<Ignore>]
 [<Test>]
 let ``auto8`` () =
   let d = pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"

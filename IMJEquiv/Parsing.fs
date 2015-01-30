@@ -34,8 +34,12 @@ let tytm (fn: String) (s: String) : TyEnv * Term = parse fn Parser.TyTerm s
 /// resulting from parsing `s` or an exception.
 let store (fn: String) (s: String) : Store = parse fn Parser.Store s
 
-let input (fn: String) : ITbl * TyEnv * Term * List<Move> * Store = 
+/// Given a file name `fn` (for error reporting purposes only) 
+/// and text to be parsed `s`, `move fn s` is the list of moves 
+/// resulting from parsing `s` or an exception.
+let move (fn: String) (s: String) : List<Move> = parse fn Parser.Move s
+
+let input (fn: String) : ITbl * TyEnv * Term * Term = 
   let str = System.IO.File.ReadAllText fn
-  let cxt, tm, mu, s = parse fn Parser.Input str
-  let d, g = Cxt.separate cxt
-  (d, g, tm, mu, s)
+  let d, g, tm1, tm2 = parse fn Parser.Input str
+  (d, g, tm1, tm2)

@@ -60,6 +60,8 @@
     <Compile Include="CanonicalTests.fs" />
     <Compile Include="StoreTests.fs" />
     <Compile Include="AutomatonTests.fs" />
+    <Compile Include="InitialTests.fs" />
+    <Compile Include="FPDRSTests.fs" />
     <None Include="Quick.fsx" />
     <None Include="packages.config" />
     <Content Include="app.config" />

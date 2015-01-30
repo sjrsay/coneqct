@@ -19,12 +19,12 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 
 %}
 
-%start Term ITbl TyEnv TyTerm Store Input
+%start Term ITbl TyEnv TyTerm Store Input Move
 
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT TIMES
 %token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE NULL
 %token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
-%token INTERFACE EXTENDS MOVE STORE BAR TERM
+%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP
 %token <String> ID IID
 %token <Int32> NUM RID
 
@@ -39,7 +39,8 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 %type <TyEnv> TyEnv
 %type <TyEnv * Term> TyTerm
 %type <Store> Store
-%type <Cxt * Term * List<Move> * Store> Input
+%type <List<Move>> Move
+%type <ITbl * TyEnv * Term * Term> Input
 
 %%
 
@@ -219,12 +220,7 @@ TermInCxt:
   | Cxt Recover                                     { reportError parseState "Expected bar" 2 }
 
 Input:
-  | TERM TermInCxt MOVE Move STORE Store            { (fst $2, snd $2, $4, $6) }
-  | Recover                                         { reportError parseState "Expected \"TERM:\"" 1 }
-  | TERM TermInCxt Recover                          { reportError parseState "Expected \"MOVE:\"" 3 }
-  | TERM TermInCxt MOVE Recover                     { reportError parseState "Expected move" 4 }
-  | TERM TermInCxt MOVE Move Recover                { reportError parseState "Expected \"STORE:\"" 5 }
-
+  | ITbl TyEnv BAR Term SEP Term                    { ($1, $2, $4, $6) }
 
 Recover:
   | error                                           { true }
