@@ -1,19 +1,12 @@
-TERM:
-Empty = { },
-VarInt = { val:int },
-VarEmpty = { val: Empty },
-Cell = { get:void -> Empty, set:Empty -> void },
+
+I = { f: int, m:int -> int }
+
 cxt:void
------------------
-let b = new {c:VarInt;} in 
-let v = new {a:VarEmpty;} in 
-let w = new {d:VarEmpty;} in 
-new {z:Cell; 
-  get:\x.if b.val = 1 then (b.val := 0; v.val) else (b.val := 1; w.val), 
-  set:\y.if y=null then (while 1 do skip) else (v.val := y; w.val := y)
-}
 
-MOVE:
-*
+----------------------------
 
-STORE:
+new {z:I; m:\x.x}
+
+%%
+
+new {z:I; m:\x.x}

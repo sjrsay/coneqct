@@ -244,3 +244,7 @@ module Store =
     | None -> failwith "Expected to find alpha-equivalent store"
     | Some p -> p
 
+   
+  let fromMoves (d: ITbl) (g: TyEnv) (ms: List<Move>) : List<Store> =
+    let tyspp = List.fold2 (fun s m (_,ty) -> match m, ty with ValM (VReg r), Iface i -> Set.add (r,i) s | _ -> s) Set.empty ms g
+    stores d Set.empty tyspp

@@ -67,6 +67,7 @@ rule tokenizeMain =
 	| ';'             { SEMICOLON }
 	| '\\'            { BACKSLASH }
 	| "->"		      { RIGHTARROW }
+	| "%%"            { SEP }
 	| '='             { EQUALS } 
 	| '('		      { LPAREN }
 	| ')'		      { RPAREN }

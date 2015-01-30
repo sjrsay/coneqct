@@ -26,7 +26,7 @@
     <DocumentationFile>bin\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\tests\inputs\</StartWorkingDirectory>
-    <StartArguments>.\inp1.imj</StartArguments>
+    <StartArguments>.\inp2.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -73,7 +73,7 @@
     <Compile Include="Store.fs" />
     <Compile Include="Automata.fs" />
     <Compile Include="Product.fs" />
-    <Compile Include="FPDRS.fs" />
+    <Compile Include="FPDRA.fs" />
     <Compile Include="Explosion.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />

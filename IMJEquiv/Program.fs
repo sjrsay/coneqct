@@ -82,13 +82,29 @@ let checkInitialConditions (d: ITbl) (g: TyEnv) (mu: List<Move>) (s: Store) =
 [<EntryPoint>]
 let main _ = 
     if !inputFile = "" then exitWith (sprintf "No input file specified.")
-    let d, g, t, mu, s = 
+    let d, g, tm1, tm2 = 
       try Parsing.input !inputFile with
       | Parser.ParseError (s,l,c) -> exitWith (sprintf "Parse Error %d:%d: %s." l c s)
-    do checkInitialConditions d g mu s
-    let c = Canonical.canonise d g t
-    printf "%A\n" c
-    let a = Automata.fromCanon d g c mu s
-    let dot = Automata.toDot a
-    System.IO.File.WriteAllText(!outputFile, dot)
+    let c1 = Canonical.canonise d g tm1
+    let c2 = Canonical.canonise d g tm2
+    let mus = Move.ofContext 1 g
+    let inits = seq {
+        for mu in mus do 
+          for s in Store.fromMoves d g mu do
+            yield (mu, s)
+      }
+    let autos = seq {
+      for mu, s in inits do
+        let a1 = Automata.fromCanon d g c1 mu s
+        let a2 = Automata.fromCanon d g c2 mu s
+        yield (a1, a2, mu, s)
+    }
+    let products = Seq.map (fun (a1,a2,mu,s) -> Product.fromAutomata (mu,s) a1 a2) autos
+    let fpdras = Seq.map FPDRA.fromProduct products
+    let pdas = Seq.map Explosion.fromFPDRA fpdras
+    let forced = List.ofSeq pdas
+    let pda = List.head forced
+    printf "\nNum States = %d\n\n" pda.States.Length
+//    let dot = Automata.toDot a
+//    System.IO.File.WriteAllText(!outputFile, dot)
     0
