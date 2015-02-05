@@ -62,11 +62,17 @@
     <Compile Include="AutomatonTests.fs" />
     <Compile Include="InitialTests.fs" />
     <Compile Include="FPDRSTests.fs" />
+    <Compile Include="SchwoonTests.fs" />
     <None Include="Quick.fsx" />
     <None Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\wpds\WPDS.vcxproj">
+      <Name>WPDS</Name>
+      <Project>{236257ce-c605-467a-8388-58cfc683d092}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="FsLexYacc.Runtime">
       <HintPath>..\..\packages\FsLexYacc.Runtime.6.0.4\lib\net40\FsLexYacc.Runtime.dll</HintPath>
       <Private>True</Private>

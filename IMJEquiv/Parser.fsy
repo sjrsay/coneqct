@@ -221,6 +221,7 @@ TermInCxt:
 
 Input:
   | ITbl TyEnv BAR Term SEP Term                    { ($1, $2, $4, $6) }
+  | ITbl Recover                                    { reportError parseState "Malformed context, perhaps you're missing a comma?" 2}
 
 Recover:
   | error                                           { true }

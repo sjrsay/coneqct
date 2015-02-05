@@ -24,67 +24,61 @@ let getInputFile (s:String) : Unit =
   else
     exitWith (sprintf "Specified input file %s does not exist." s)
 
+
+// Command line options
 let specs = [
     "-o", ArgType.String (fun s -> outputFile := s), "Name of output dot file for automaton, default is \"auto.dot\"."
   ] 
-
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 
+// Command line usage string
 let usageText = "Please specify input file and command line options."
 
+// Parse command line options
 let _ = ArgParser.Parse(compiledSpecs, getInputFile, usageText)
 
-let checkInitialConditions (d: ITbl) (g: TyEnv) (mu: List<Move>) (s: Store) =
+
+/// Given an interface table `d`, a type environment `g`, two canonical forms `c1` and `c2 such that 
+/// `d g |- c1 : t` and `d g |- c2 : t` for some type `t` and an initial position `(mu, s)` consistent
+/// with the context `d g`, `solveFromInitPos d g c1 c2 mu s` is `Equivalent` just if `c1` and `c2`
+/// are contextually equivalent in `d g` and is `Inequivalent` otherwise.
+let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move>) (s: Store) : Result =
+
+  do printf "Processing initial position (%s, %A):\n" (Move.listToString mu) s
   
-  let assertInStore (r: RegId) (i: IntId) : Unit =
-    match Map.tryFind r s with
-    | None -> exitWith (sprintf "Malformed input: Register %d is not in the domain of the store." r)
-    | Some (j,_) -> if i <> j then exitWith (sprintf "Malformed input: The type of register %d is inconsistent." r)
+  let a1    = Automata.fromCanon d g c1 mu s
+  do printf "\tIMJA 1: %d states, %d transitions.\n" a1.States.Length a1.TransRel.Length
 
-  let assertMoveType (x, ty: Ty) (m: Move) : Unit =
-    match ty, m with
-    | Ty.Void, Move.ValM Val.VStar   -> ()
-    | Ty.Int, Move.ValM (Val.VNum _) -> ()
-    | Ty.Iface i, Move.ValM (Val.VReg r) -> assertInStore r i
-    | _, _ -> exitWith (sprintf "Malformed input: Move %A is not a valid initial move for (%A: %A)." m x ty)
+  let a2    = Automata.fromCanon d g c2 mu s
+  do printf "\tIMJA 2: %d states, %d transitions.\n" a2.States.Length a2.TransRel.Length
 
-  let assertStoreTyped : Unit =
-    let assertFieldTyped (flds: Map<FldId, Val>) (f: FldId, ty: Ty) : Unit =
-      match Map.tryFind f flds with
-      | None -> exitWith (sprintf "Malformed input: Field %A is not assigned in the store." f)
-      | Some v ->
-          match v, ty with
-          | Val.VNul, Ty.Iface _ -> ()
-          | Val.VNum _, Ty.Int -> ()
-          | Val.VReg r, Ty.Iface j -> assertInStore r j
-          | Val.VStar, Ty.Void -> ()
-          | _, _ -> exitWith (sprintf "Malformed input: Field %A assigned %A, but this is badly typed." f v)
+  let imj2  = Product.fromAutomata (mu, s) a1 a2
+  do printf "\tIMJ2A: %d states, %d transitions, %d registers.\n" imj2.States.Length imj2.Trans.Length imj2.NumRegs
 
-    let assertFieldsOk (i: IntId) (flds: Map<FldId, Val>) : Unit =
-      let fldSpec = ITbl.fields d i
-      let fldDom = Map.domain flds
-      Set.iter (fun f -> if List.forall (fun (g,_) -> f <> g) fldSpec then exitWith (sprintf "Malformed input: Field %A in initial store is not part of declared interface." f)) fldDom
-      List.iter (assertFieldTyped flds) fldSpec
+  let fpdra = FPDRA.fromProduct imj2
+  do printf "\tFPDRA: %d states, %d transitions.\n" fpdra.States.Length fpdra.Transitions.Length
 
-    Map.iter (fun _ (i, flds) -> assertFieldsOk i flds) s
-
-  let relevantStore = Store.trim s (Automata.muSupp mu)
-  let sDom = Map.domain s
-
-  if sDom <> (Store.supp relevantStore) then exitWith (sprintf "Malformed input: Items in store unreachable from the initial move.")
-  if List.length g > List.length mu then exitWith (sprintf "Malformed input: There are free variables not accounted for in the initial move.")
-  if List.length g < List.length mu then exitWith (sprintf "Malformed input: There are components of the initial move not accounted for in the context.")
-  List.iter2 assertMoveType g mu
-
+  let pda   = Explosion.fromFPDRA fpdra
+  do printf "\tPDA: %d states, %d transition.\n" pda.States.Length pda.Trans.Length
   
+  let result = Solve.schwoon pda
+  do printf "\tResult: %A\n\n" result
+
+  result
 
 
+/// The entry point to the program is `main`.  Assumes that all option handling has already been done.
 [<EntryPoint>]
 let main _ = 
+
+    printf "\nContextual Equivalence Checker for Interface Middleweight Java\n\n"
+
     if !inputFile = "" then exitWith (sprintf "No input file specified.")
     let d, g, tm1, tm2 = 
       try Parsing.input !inputFile with
       | Parser.ParseError (s,l,c) -> exitWith (sprintf "Parse Error %d:%d: %s." l c s)
+      | Lexer.LexerError  (_,l,c) -> exitWith (sprintf "Parse Error %d:%d: unknown symbol." l c)
+      | _                         -> exitWith (sprintf "Parse Error: input is malformed.")
     let c1 = Canonical.canonise d g tm1
     let c2 = Canonical.canonise d g tm2
     let mus = Move.ofContext 1 g
@@ -93,18 +87,6 @@ let main _ =
           for s in Store.fromMoves d g mu do
             yield (mu, s)
       }
-    let autos = seq {
-      for mu, s in inits do
-        let a1 = Automata.fromCanon d g c1 mu s
-        let a2 = Automata.fromCanon d g c2 mu s
-        yield (a1, a2, mu, s)
-    }
-    let products = Seq.map (fun (a1,a2,mu,s) -> Product.fromAutomata (mu,s) a1 a2) autos
-    let fpdras = Seq.map FPDRA.fromProduct products
-    let pdas = Seq.map Explosion.fromFPDRA fpdras
-    let forced = List.ofSeq pdas
-    let pda = List.head forced
-    printf "\nNum States = %d\n\n" pda.States.Length
-//    let dot = Automata.toDot a
-//    System.IO.File.WriteAllText(!outputFile, dot)
+    let res = Seq.fold (fun r (mu, s) -> Result.combine r (solveFromInitPos d g c1 c2 mu s)) Equivalent inits
+    printf "Result: %A\n" res
     0

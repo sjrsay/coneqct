@@ -30,10 +30,14 @@ type PDA = {
     Trans: List<FTransition>
     Initial: FState
     Finals: List<FState>
+    Alphabet: List<Int>
   }
 
 module Explosion =
 
+  let filled (rho: Array<ExtLet>) : Set<RegId> =
+    snd <| Array.fold (fun (i,s) el -> match el with Content _ -> (i+1, Set.add i s) | _ -> (i+1,s)) (0,Set.empty) rho
+ 
   let supp (rho: Array<ExtLet>) : Set<Letter> =
     Array.fold (fun acc el -> match el with Content (l,f) -> Set.add l acc | _ -> acc) Set.empty rho
 
@@ -47,13 +51,13 @@ module Explosion =
   /// `[1..sz]\exclude`.
   let allRefreshments (sz: Int) (exclude: Set<Int>) (n: Int) : List<List<Int>> =
     let rec build ex m =
-      if n = 0 then
+      if m = 0 then
         [[]]
       else
         [
           for i in [1..sz] do 
             if not (Set.contains i ex) then 
-              for xs in build (Set.add i ex) (n-1) do
+              for xs in build (Set.add i ex) (m-1) do
                 yield i::xs
         ]
     build exclude n
@@ -139,31 +143,40 @@ module Explosion =
     let cut y rho = Array.foldi (fun m i l -> if Set.contains i y then Map.add i l m else m) Map.empty rho
     match tl with
     | TLabel.Noop x ->
+        if not (Set.isSubset x (Span.range q2.Span)) then failwith "Blah"
+        if not (Set.isEmpty (Set.intersect x (Span.range q1.Span))) then failwith "Blah"
         let flg = playerToFlag q1.Owner
         [
           for rho' in refresh sz x flg q.Assignment do
+            if filled rho' <> Span.range q2.Span then failwithf "Blag %A" rho'
             let q' = { Control = q2; Assignment = rho' }
             let t' = (q, Eps, q')
             yield (t', q')
         ]
     | TLabel.Cut x ->
-        let rho' = Array.mapi (fun i l -> if Set.contains i x then Empty else l) q.Assignment
+        let rho' = Array.mapi (fun i l -> if Set.contains i x then l else Empty) q.Assignment
+        if filled rho' <> Span.range q2.Span then failwith "Blag"
         let q'   = { Control = q2; Assignment = rho' }
         [(q,Eps,q'),q']
     | TLabel.Eps -> 
         let q' = { q with Control = q2 }
         [(q,Eps,q'), q']
     | TLabel.Push (x, (p1,y1),(p2,y2)) ->
+        if not (Set.isSubset x (Span.range q2.Span)) then failwith "Blah"
+        if not (Set.isEmpty (Set.intersect x (Span.range q1.Span))) then failwith "Blah"
         let flg = playerToFlag q1.Owner
         let rhoy1 = cut y1 q.Assignment
         let rhoy2 = cut y2 q.Assignment
         [
           for rho' in refresh sz x flg q.Assignment do
             let rho'' = makeLocal (y1 + y2) rho'
+            if filled rho'' <> Span.range q2.Span then failwith "Blag"
             let q' = { Control = q2; Assignment = rho'' }
             yield ((q, Push ((p1,rhoy1),(p2,rhoy2)), q'), q')
         ]
     | TLabel.Pop (lfrs, (p1,y1), (p2,y2)) ->
+        if not (Set.isSubset lfrs (Span.range q2.Span)) then failwith "Blah"
+        if not (Set.isEmpty (Set.intersect lfrs (Span.range q1.Span))) then failwith "Blah"
         if not (allLocal (y1+y2) q.Assignment) then 
           []
         else
@@ -171,12 +184,13 @@ module Explosion =
           let exts = globals (y1+y2) 
           [
             for rho' in refresh sz lfrs Local q.Assignment do
+              if filled rho' <> Span.range q2.Span then failwith "Blag"
               let rho'y1 = cut y1 rho'
               let rho'y2 = cut y2 rho'
               for ext in exts do
                 let rho'y1g = Map.map (fun r l -> setFlag ext.[r] l) rho'y1
                 let rho'y2g = Map.map (fun r l -> setFlag ext.[r] l) rho'y1
-                let rho'g = Array.mapi (fun r l -> setFlag ext.[r] l) rho'
+                let rho'g = Array.mapi (fun r l -> match Map.tryFind r ext with None -> l | Some f -> setFlag f l) rho'
                 let q' = { Control = q2; Assignment = rho'g }
                 yield ((q, Pop ((p1,rho'y1g),(p2,rho'y2g)), q'), q')
           ]
@@ -221,6 +235,7 @@ module Explosion =
       Trans   = !trans
       Initial = q0
       Finals  = finals
+      Alphabet = [1..sz]
     }
 
 

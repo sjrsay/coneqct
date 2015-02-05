@@ -42,4 +42,8 @@ let move (fn: String) (s: String) : List<Move> = parse fn Parser.Move s
 let input (fn: String) : ITbl * TyEnv * Term * Term = 
   let str = System.IO.File.ReadAllText fn
   let d, g, tm1, tm2 = parse fn Parser.Input str
-  (d, g, tm1, tm2)
+  let g' = 
+    match g with
+    | []   -> [("__cxt", Void)]
+    | _::_ -> g
+  (d, g', tm1, tm2)

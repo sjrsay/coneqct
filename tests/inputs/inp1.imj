@@ -11,7 +11,7 @@ cxt:void
 let v = new {a:VarEmpty;} in
 new {z:Cell; get:\x.v.val, set:\y.if y=null then (while 1 do skip) else (v.val := y)}
 
-%%
+  =?=
 
 let b = new {c:VarInt;} in 
 let v = new {a:VarEmpty;} in 

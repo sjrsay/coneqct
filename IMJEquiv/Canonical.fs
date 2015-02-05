@@ -183,10 +183,6 @@ module Canonical =
      | If (y, c1, c2) ->
          If (y, lemma34 x c1 cm', lemma34 x c2 cm')
 
-  // The following three are defined as static members only so
-  // that the ToString () and Show machinery can make use of them
-  // for the purpose of displaying canonical forms during
-  // interaction and debugging.
   let toTerm (c: Canon) : Term = Canon.ToTerm c
   let methToTerm (cm: CanMeth) : MethSpec = CanMeth.ToMethSpec cm
   let canLetToTerm (cl: CanLet) : Term = CanLet.ToTerm cl
