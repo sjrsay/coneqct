@@ -71,7 +71,7 @@
     <Compile Include="Val.fs" />
     <Compile Include="Move.fs" />
     <Compile Include="Store.fs" />
-    <Compile Include="Automata.fs" />
+    <Compile Include="Automaton.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="FPDRA.fs" />
     <Compile Include="Explosion.fs" />
