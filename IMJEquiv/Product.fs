@@ -112,8 +112,8 @@ module Product =
         | Div1 q1 -> Map.add q (a1.Rank.[q1], a1.Rank.[q1]) m
         | Div2 q2 -> Map.add q (a2.Rank.[q2], a2.Rank.[q2]) m
       List.fold rankPairState Map.empty states
-    let numRegs1 = Automata.numRegs a1
-    let numRegs2 = Automata.numRegs a2
+    let numRegs1 = Automaton.numRegs a1
+    let numRegs2 = Automaton.numRegs a2
     {
       States  = states
       Owner   = owner

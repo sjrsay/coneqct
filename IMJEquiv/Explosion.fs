@@ -13,8 +13,11 @@ type ExtLet =
 
 type Assn = Map<Int,ExtLet>
 
+type OptState = Int
+type OptTrans = OptState * TLabel * OptState
+
 type FState = {
-    Control:    SpanState           
+    Control:    OptState           
     Assignment: Array<ExtLet>   
   }
 
@@ -34,6 +37,29 @@ type PDA = {
   }
 
 module Explosion =
+
+  let optimise (sz: Int) (q0: SpanState) (ts: List<Trans>) (finals: List<SpanState>) : OptState * List<OptTrans> * List<OptState> * HashMap<OptState,Player> =
+
+    let num = ref 0
+    let stateTbl = HashMap(2 * sz)
+    let ownerTbl = HashMap(2 * sz)
+
+    let doState (q: SpanState) : OptState =
+      match stateTbl.TryGetValue q with
+      | true, i  -> i
+      | false, _ ->
+          do incr num
+          do stateTbl.[q] <- !num
+          do ownerTbl.[!num] <- q.Owner
+          !num
+
+    let doTrans ((q1, tl, q2): Trans) : OptTrans =
+      let q1' = doState q1
+      let q2' = doState q2
+      (q1', tl, q2')
+
+    (doState q0, List.map doTrans ts, List.map doState finals, ownerTbl)
+
 
   let filled (rho: Array<ExtLet>) : Set<RegId> =
     snd <| Array.fold (fun (i,s) el -> match el with Content _ -> (i+1, Set.add i s) | _ -> (i+1,s)) (0,Set.empty) rho
@@ -139,52 +165,42 @@ module Explosion =
           ]
     gs (Set.toList xs)
 
-  let successors (sz: Int) (q: FState) ((q1,tl,q2): Trans) : List<FTransition * FState> =
+  let successors (sz: Int) (owner: HashMap<OptState,Player>) (q: FState) ((q1,tl,q2): OptTrans) : List<FTransition * FState> =
     let cut y rho = Array.foldi (fun m i l -> if Set.contains i y then Map.add i l m else m) Map.empty rho
     match tl with
     | TLabel.Noop x ->
-        if not (Set.isSubset x (Span.range q2.Span)) then failwith "Blah"
-        if not (Set.isEmpty (Set.intersect x (Span.range q1.Span))) then failwith "Blah"
-        let flg = playerToFlag q1.Owner
+        let flg = playerToFlag owner.[q1]
         [
           for rho' in refresh sz x flg q.Assignment do
-            if filled rho' <> Span.range q2.Span then failwithf "Blag %A" rho'
             let q' = { Control = q2; Assignment = rho' }
             let t' = (q, Eps, q')
             yield (t', q')
         ]
     | TLabel.Cut x ->
         let rho' = Array.mapi (fun i l -> if Set.contains i x then l else Empty) q.Assignment
-        if filled rho' <> Span.range q2.Span then failwith "Blag"
         let q'   = { Control = q2; Assignment = rho' }
         [(q,Eps,q'),q']
     | TLabel.Eps -> 
         let q' = { q with Control = q2 }
         [(q,Eps,q'), q']
     | TLabel.Push (x, (p1,y1),(p2,y2)) ->
-        if not (Set.isSubset x (Span.range q2.Span)) then failwith "Blah"
-        if not (Set.isEmpty (Set.intersect x (Span.range q1.Span))) then failwith "Blah"
-        let flg = playerToFlag q1.Owner
+        let flg = playerToFlag owner.[q1]
         let rhoy1 = cut y1 q.Assignment
         let rhoy2 = cut y2 q.Assignment
         [
           for rho' in refresh sz x flg q.Assignment do
             let rho'' = makeLocal (y1 + y2) rho'
-            if filled rho'' <> Span.range q2.Span then failwith "Blag"
             let q' = { Control = q2; Assignment = rho'' }
             yield ((q, Push ((p1,rhoy1),(p2,rhoy2)), q'), q')
         ]
     | TLabel.Pop (lfrs, (p1,y1), (p2,y2)) ->
-        if not (Set.isSubset lfrs (Span.range q2.Span)) then failwith "Blah"
-        if not (Set.isEmpty (Set.intersect lfrs (Span.range q1.Span))) then failwith "Blah"
         if not (allLocal (y1+y2) q.Assignment) then 
           []
         else
-          let flg  = playerToFlag q1.Owner
+          let flg  = playerToFlag owner.[q1]
           let exts = globals (y1+y2) 
           [
             for rho' in refresh sz lfrs Local q.Assignment do
-              if filled rho' <> Span.range q2.Span then failwith "Blag"
               let rho'y1 = cut y1 rho'
               let rho'y2 = cut y2 rho'
               for ext in exts do
@@ -202,12 +218,15 @@ module Explosion =
     let trans = ref []
     let states = HashSet ()
 
+    let aNumStates = a.States.Length
+    let optq0, optTrans, optFinals, owner = optimise aNumStates a.Initial a.Transitions a.Finals
+
     let rec fix (fr: List<FState>) : Unit =
       if not (List.isEmpty fr) then
         let newFr = [
             for q in fr do
-              for (q1,tl,q2) as t in a.Transitions do
-                let succs = if q.Control = q1 then successors sz q t else []
+              for (q1,tl,q2) as t in optTrans do
+                let succs = if q.Control = q1 then successors sz owner q t else []
                 for (t',q') in succs do
                   do trans := t' :: !trans
                   let b = states.Add q'
@@ -225,11 +244,11 @@ module Explosion =
       else
         Empty
     let rho0 = Array.init a.NumRegs assign
-    let q0 = { Control = a.Initial; Assignment = rho0 }
+    let q0 = { Control = optq0; Assignment = rho0 }
     let _ = states.Add q0
     do fix [q0]
 
-    let finals = [ for q in states do if List.contains q.Control a.Finals then yield q ] 
+    let finals = [ for q in states do if List.contains q.Control optFinals then yield q ] 
     {
       States  = List.ofSeq (states :> Seq<FState>)
       Trans   = !trans

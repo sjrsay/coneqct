@@ -46,10 +46,10 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
 
   do printf "Processing initial position (%s, %A):\n" (Move.listToString mu) s
   
-  let a1    = Automata.fromCanon d g c1 mu s
+  let a1    = Automaton.fromCanon d g c1 mu s
   do printf "\tIMJA 1: %d states, %d transitions.\n" a1.States.Length a1.TransRel.Length
 
-  let a2    = Automata.fromCanon d g c2 mu s
+  let a2    = Automaton.fromCanon d g c2 mu s
   do printf "\tIMJA 2: %d states, %d transitions.\n" a2.States.Length a2.TransRel.Length
 
   let imj2  = Product.fromAutomata (mu, s) a1 a2
