@@ -1,5 +1,5 @@
 ﻿#r @"..\..\packages\NUnit.2.6.3\lib\nunit.framework.dll"
-#r @"..\..\bin\Utils.dll"
+#r @"..\..\..\Utils\bin\Debug\Utils.dll"
 #r @"..\..\IMJEquiv\bin\Debug\IMJEquiv.exe"
 
 open IMJEquiv
@@ -14,5 +14,5 @@ let t = ptm "while 1 do skip"
 let c = Canonical.canonise d g t
 let m = Move.ValM Val.VStar
 let s = pstore ""
-let a = Automata.fromCanon d g c [m] s
-System.IO.File.WriteAllText(fn,Automata.toDot a)
+let a = Automaton.fromCanon d g c [m] s
+System.IO.File.WriteAllText(fn,Automaton.toDot a)

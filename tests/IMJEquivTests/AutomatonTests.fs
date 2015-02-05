@@ -14,8 +14,8 @@ let ``auto1`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 1,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 1,Automaton.toDot a)
 
 [<Test>]
 let ``auto2`` () =
@@ -25,8 +25,8 @@ let ``auto2`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : I = {}"
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 2,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 2,Automaton.toDot a)
 
 [<Test>]
 let ``auto3`` () =
@@ -36,8 +36,8 @@ let ``auto3`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : J = {}"
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 3,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 3,Automaton.toDot a)
 
 [<Test>]
 let ``auto4`` () =
@@ -47,8 +47,8 @@ let ``auto4`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : VarEmpty = { val = null }"
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 4,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 4,Automaton.toDot a)
 
 [<Test>]
 let ``auto5`` () =
@@ -58,8 +58,8 @@ let ``auto5`` () =
   let c = Canonical.canonise d g t
   let m = [Move.ValM (Val.VReg 1)]
   let s = pstore "r1 : VarInt = { val = 0 }"
-  let a = Automata.fromCanon d g c m s
-  System.IO.File.WriteAllText(fn 5,Automata.toDot a)
+  let a = Automaton.fromCanon d g c m s
+  System.IO.File.WriteAllText(fn 5,Automaton.toDot a)
 
 [<Test>]
 let ``auto6`` () =
@@ -69,8 +69,8 @@ let ``auto6`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 6,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 6,Automaton.toDot a)
 
 [<Test>]
 let ``auto7`` () =
@@ -80,8 +80,8 @@ let ``auto7`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 7,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 7,Automaton.toDot a)
 
 [<Ignore>]
 [<Test>]
@@ -92,5 +92,5 @@ let ``auto8`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automata.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 8,Automata.toDot a)
+  let a = Automaton.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 8,Automaton.toDot a)
