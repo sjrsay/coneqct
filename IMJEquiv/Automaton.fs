@@ -73,7 +73,8 @@ type Automaton =
    Rank : Map<State,Store>
  }
 
-module Automata = 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Automaton = 
 
   let labelOfTLabel (t: TransLabel) : Label =
     match t with
