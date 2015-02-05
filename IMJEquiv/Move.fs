@@ -27,6 +27,12 @@ module Move =
         Set.add r (Val.supp v)
 
 
+  let listToString (ms: List<Move>) : String =
+    match ms with
+    | []   -> ""
+    | [x]  -> x.ToString ()
+    | _::_ -> List.toStringWithDelims "(" ", " ")" ms
+
   /// Given register index `rnum` and type environment `g`, 
   /// with `g = [x_1:t_1, ..., x_n:t_n]`, `ofContext rnum g` is
   /// `[m_1, ..., m_2]` with `m_i` a possible initial move
@@ -49,6 +55,4 @@ module Move =
           let r', vs = allOfTy r ty
           [for v in vs do for ms in mkMoves r' gs' do yield ValM v :: ms]
     
-    match g with
-    | []   -> [[ValM VStar]]
-    | _::_ -> mkMoves rnum g
+    mkMoves rnum g

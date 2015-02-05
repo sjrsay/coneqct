@@ -6,6 +6,16 @@ type Span =
     Left: Map<RegId,RegId>
     Right: Map<RegId, RegId>
   }
+  
+  override x.ToString () =
+    let ls = Map.toList x.Left
+    let rs = Map.toList x.Right
+    let lstr = List.toStringWithDelims "{ " ", " " }" ls
+    let rstr = List.toStringWithDelims "{ " ", " " }" rs
+    sprintf "L = %s R = %s" lstr rstr
+
+  static member range (s: Span) : Set<Int> = 
+    Map.codomain s.Left + Map.codomain s.Right
 
 [<CustomComparison>]
 [<StructuralEquality>]
@@ -37,6 +47,16 @@ type TLabel =
   | Push of Set<RegId> * PushData * PushData
   | Pop of Set<RegId> * PopData * PopData
   | Eps 
+
+  override x.ToString() =
+    let showSet xs = 
+      List.toStringWithDelims "{ " ", " " }" (Set.toList xs)
+    match x with
+    | Cut xs -> "Cut " + showSet xs
+    | Noop xs -> "nu " + showSet xs
+    | Push (xs, (p1,ys1), (p2,ys2)) -> sprintf "nu %s. Push (%O,%s) (%O,%s)" (showSet xs) p1 (showSet ys1) p2 (showSet ys2)
+    | Pop  (xs, (p1,ys1), (p2,ys2)) -> sprintf "nu %s. Pop (%O,%s) (%O,%s)" (showSet xs) p1 (showSet ys1) p2 (showSet ys2) 
+    | Eps -> "eps"
 
 type Trans = SpanState * TLabel * SpanState
 
@@ -195,7 +215,7 @@ module FPDRA =
       Set.difference ran' ran
 
     let divergeIfNecessary (tl1: TransLabel) (tl2: TransLabel) xs =
-      match pl with
+      match q.Owner with
       | O -> xs
       | P -> 
           match xs with
@@ -315,12 +335,13 @@ module FPDRA =
           set [
             for r in x do
               let r' = q.Span.Left.[r]
-              if not (Set.contains r' rran) then yield r'
+              yield r'
           ]
-        let st = Map.restrict q.Store x'
-        let sp = { q.Span with Left = Map.restrict q.Span.Left x }
-        let q' = { State = q2; Span = sp; Store = st; Owner = pl }
-        [(q, Cut x', q'), q']
+        let x'' = x' + rran
+        let st  = Map.restrict q.Store x''
+        let sp  = { q.Span with Left = Map.restrict q.Span.Left x }
+        let q'  = { State = q2; Span = sp; Store = st; Owner = pl }
+        [(q, Cut x'', q'), q']
 
     | Set2 x
     | SetId2 x ->
@@ -329,12 +350,13 @@ module FPDRA =
           set [
             for r in x do
               let r' = q.Span.Right.[r]
-              if not (Set.contains r' lran) then yield r'
+              yield r'
           ]
-        let st = Map.restrict q.Store x'
-        let sp = { q.Span with Left = Map.restrict q.Span.Right x }
-        let q' = { State = q2; Span = sp; Store = st; Owner = pl }
-        [(q, Cut x', q'), q']
+        let x'' = x' + lran
+        let st  = Map.restrict q.Store x''
+        let sp  = { q.Span with Right = Map.restrict q.Span.Right x }
+        let q'  = { State = q2; Span = sp; Store = st; Owner = pl }
+        [(q, Cut x'', q'), q']
 
     | Perm1 pi
     | Perm1Id pi ->

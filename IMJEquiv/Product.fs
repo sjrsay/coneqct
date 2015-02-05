@@ -5,6 +5,12 @@ type State2 =
   | Div1 of State
   | Div2 of State
 
+  override x.ToString () =
+    match x with
+    | Sim (q1,q2) -> sprintf "(%O,%O)" q1 q2
+    | Div1 q1     -> sprintf "(%O,_)" q1
+    | Div2 q2     -> sprintf "(_,%O)" q2
+
 type TLabel2 =
   | Move12 of TransLabel * TransLabel
   | Move1 of TransLabel

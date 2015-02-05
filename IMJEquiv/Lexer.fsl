@@ -67,7 +67,7 @@ rule tokenizeMain =
 	| ';'             { SEMICOLON }
 	| '\\'            { BACKSLASH }
 	| "->"		      { RIGHTARROW }
-	| "%%"            { SEP }
+	| "=?="            { SEP }
 	| '='             { EQUALS } 
 	| '('		      { LPAREN }
 	| ')'		      { RPAREN }
@@ -79,7 +79,7 @@ rule tokenizeMain =
 	| "/*"            { tokenizeComment 0 lexbuf }
 	| wspace          { tokenizeMain lexbuf }
 	| eof             { EOF }
-	| _               { raise (LexerError ((lexeme lexbuf).[0], lexbuf.StartPos.Line, lexbuf.StartPos.Column)) }
+	| _               { raise (LexerError ((lexeme lexbuf).[0], lexbuf.StartPos.Line, lexbuf.StartPos.Column + 1)) }
 
 and tokenizeComment d = 
   parse
