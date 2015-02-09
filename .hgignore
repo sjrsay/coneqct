@@ -1,14 +1,24 @@
 ^IMJEquiv/bin
 ^IMJEquiv/obj
+^IMJEquiv/Debug
+^IMJEquiv/Release
 ^tests/IMJEquivTests/bin
 ^tests/IMJEquivTests/obj
 ^bin
 ^packages
 ^TestResults.xml
+^Release
+^Debug
+^wpds/Debug
+^wpds/Release
 
 syntax: glob
 *.suo
 *.dll
+*.obj
+*.dot
+*.psess
+*.svg
 __temp__.fsx
 IMJEquiv/Lexer.fs
 IMJEquiv/Parser.fs

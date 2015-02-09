@@ -25,8 +25,8 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>..\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
-    <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\tests\inputs\</StartWorkingDirectory>
-    <StartArguments>.\inp1.imj</StartArguments>
+    <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug</StartWorkingDirectory>
+    <StartArguments>-pa1 -pa2 ..\tests\inputs\inp5.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -38,6 +38,11 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
     <DocumentationFile>..\Release\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
+    <OtherFlags>
+    </OtherFlags>
+    <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug\</StartWorkingDirectory>
+    <StartArguments>
+    </StartArguments>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -86,14 +91,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\wpds\WPDS.vcxproj">
-      <Name>WPDS</Name>
-      <Project>{236257ce-c605-467a-8388-58cfc683d092}</Project>
-      <Private>True</Private>
-    </ProjectReference>
     <Reference Include="FSharp.PowerPack">
       <HintPath>..\packages\FSPowerPack.Core.Community.3.0.0.0\Lib\Net40\FSharp.PowerPack.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="FsLexYacc.Runtime">
       <HintPath>..\packages\FsLexYacc.Runtime.6.0.2\lib\net40\FsLexYacc.Runtime.dll</HintPath>

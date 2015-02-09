@@ -6,6 +6,8 @@ open System.Diagnostics
 
 let outputFile = ref "auto.dot"
 let inputFile = ref ""
+let printA1 = ref false
+let printA2 = ref false
 
 let exitWith (s:String) =
   printf "\n%s Exiting.\n" s; exit 1
@@ -28,7 +30,8 @@ let getInputFile (s:String) : Unit =
 
 // Command line options
 let specs = [
-    "-o", ArgType.String (fun s -> outputFile := s), "Name of output dot file for automaton, default is \"auto.dot\"."
+    "-pa1", ArgType.Set printA1, "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
+    "-pa2", ArgType.Set printA2, "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
   ] 
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 
@@ -49,14 +52,18 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   do printf "Processing initial position (%s, %A):\n" (Move.listToString mu) s
   
   let a1    = Automaton.fromCanon d g c1 mu s
+  let a1'   = Automaton.remPLoops a1
   do printf "\tIMJA 1: %d states, %d transitions (%dms).\n" a1.States.Length a1.TransRel.Length timer.ElapsedMilliseconds
+  if !printA1 then System.IO.File.WriteAllText ("auto1.dot", Automaton.toDot a1)
   do timer.Restart ()
 
   let a2    = Automaton.fromCanon d g c2 mu s
+  let a2'   = Automaton.remPLoops a2
   do printf "\tIMJA 2: %d states, %d transitions (%dms).\n" a2.States.Length a2.TransRel.Length timer.ElapsedMilliseconds
+  if !printA2 then System.IO.File.WriteAllText ("auto2.dot", Automaton.toDot a2')
   do timer.Restart ()
 
-  let imj2  = Product.fromAutomata (mu, s) a1 a2
+  let imj2  = Product.fromAutomata (mu, s) a1' a2'
   do printf "\tIMJ2A: %d states, %d transitions, %d registers (%dms).\n" imj2.States.Length imj2.Trans.Length imj2.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
 
@@ -70,7 +77,6 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   
   let result = Solve.schwoon pda
   do printf "\tResult: %A (%d ms).\n\n" result timer.ElapsedMilliseconds
-
   result
 
 
