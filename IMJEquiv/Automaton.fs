@@ -153,6 +153,60 @@ module Automaton =
     do stateCount := !stateCount + 1
     { Val = !stateCount } :> State
 
+  let remPLoops (a: Automaton) : Automaton =
+
+    let sink = newState ()
+
+    /// Given a state `q`, 
+    let epsLoop (q: State) : Option<List<Transition>> =
+
+      let applicable fr tl =
+        match tl with
+          | SetT (q1,_,q2)
+          | PermT (q1,_,q2) when q1 = fr -> true
+          | _ -> false
+
+      let rec rea path hist fr =
+        let t = List.tryFind (applicable fr) a.TransRel
+        match t with
+        | None -> None
+        | Some t' ->
+            let q2 = getSndState t'
+            if q2 = q then
+              Some (t' :: path)
+            elif Set.contains q2 hist then
+              None
+            else 
+              rea (t'::path) (Set.add q2 hist) q2
+
+      rea [] (set [q]) q
+
+    let loops = seq {
+        for q in a.States do
+          if a.Owner.[q] = P then
+            match epsLoop q with
+            | None -> ()
+            | Some p -> yield (q, p)
+      }
+    
+    let states = Seq.map fst loops
+    let trans  = Seq.fold (fun acc (_,p) -> List.fold (fun xs t -> Set.add t xs) acc p) Set.empty loops
+
+    let mkNewTrans q = 
+      let tl = Noop (Set.empty, (ValM VStar, Map.empty))
+      LabelT (q, tl, sink)
+
+    let trans' = Seq.fold (fun acc q -> (mkNewTrans q) :: acc) (List.filter (fun t -> not (Seq.contains t trans)) a.TransRel) states
+
+    { a with 
+        States = sink :: a.States 
+        TransRel = trans' 
+        Owner = Map.add sink O a.Owner
+        Rank = Map.add sink Map.empty a.Rank
+    }
+
+
+
   let empty (s0: Store) : Automaton =
     let initState = newState ()
     {

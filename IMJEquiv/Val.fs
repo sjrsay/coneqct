@@ -20,7 +20,7 @@ type Val =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Val =
 
-  let maxint = 1
+  let maxint = 2
 
   let supp (v: Val) : Set<RegId> =
     match v with
