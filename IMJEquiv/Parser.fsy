@@ -17,6 +17,11 @@ let reportError (p: IParseState) (s: String) (n: Int) =
   let posn = p.InputStartPosition n
   raise (ParseError (s, posn.Line, posn.Column + 1))
 
+let private anonNum = ref 0
+let anon () = 
+  incr anonNum
+  "_" + (!anonNum).ToString()
+
 %}
 
 %start Term ITbl TyEnv TyTerm Store Input Move
@@ -24,7 +29,7 @@ let reportError (p: IParseState) (s: String) (n: Int) =
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT TIMES
 %token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE NULL
 %token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
-%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP
+%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP UNDERSCORE
 %token <String> ID IID
 %token <Int32> NUM RID
 
@@ -81,11 +86,15 @@ Term:
   | NEW LBRACE NewExp Recover                       { reportError parseState "Expected right brace" 4 }
   | LPAREN Term RPAREN                              { $2 }
 
+BID: 
+  | ID                                              { $1 }
+  | UNDERSCORE                                      { anon () }
+
 NewExp:
-  | ID COLON IID SEMICOLON Methods                  { ($1, $3, $5) }
-  | ID Recover                                      { reportError parseState "Expected colon" 2 }
-  | ID COLON Recover                                { reportError parseState "Expected interface identifer" 3 }
-  | ID COLON IID Recover                            { reportError parseState "Expected semicolon" 4 }
+  | BID COLON IID SEMICOLON Methods                  { ($1, $3, $5) }
+  | BID Recover                                      { reportError parseState "Expected colon" 2 }
+  | BID COLON Recover                                { reportError parseState "Expected interface identifer" 3 }
+  | BID COLON IID Recover                            { reportError parseState "Expected semicolon" 4 }
 
 Method:
   | ID COLON BACKSLASH Params STOP Term             { { MethSpec.Name = $1; Vars = $4; Body = $6 } }
@@ -108,8 +117,8 @@ Methods1:
   | Method COMMA Recover                            { reportError parseState "Expected method spec" 3 }
 
 Params:
-  | ID                                              { [$1] }
-  | ID Params                                       { $1 :: $2 }
+  | BID                                              { [$1] }
+  | BID Params                                       { $1 :: $2 }
 
 Args:
   |                                                 { [] }

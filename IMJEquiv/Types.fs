@@ -46,7 +46,10 @@ type TyEnv = List<Ident * Ty>
 module TyEnv =
   
   let lookup (x: Ident) (e: TyEnv) : Option<Ty> =
-    Option.map snd (List.tryFind (fun (y,_) -> y = x) e)
+    // We deliberately look from the back of the list because there may be
+    // two occurrences of the same identifier with the intention that
+    // the later one shadows the former one.
+    List.foldBack (fun (y,ty) opt -> match opt with Some _ -> opt | None -> if x = y then Some ty else None) e None
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ITbl =
