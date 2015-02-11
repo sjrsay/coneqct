@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IMJEquiv", "IMJEquiv\IMJEquiv.fsproj", "{4168AAD1-641A-463D-A058-17D1AEE22D7A}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C5BA1064-8BA2-4A4B-8E03-8541BA52DCB3} = {C5BA1064-8BA2-4A4B-8E03-8541BA52DCB3}
+	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Utils", "..\Utils\Utils.fsproj", "{536F3FF2-DDA2-49EF-A797-A5D37AEE445A}"
 EndProject
@@ -149,8 +152,5 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A295E719-D70C-45C8-A23C-FF1BC01C0762} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
 		{148761AE-9888-4EE9-A8A0-98655AAF4880} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
-	EndGlobalSection
-	GlobalSection(Performance) = preSolution
-		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal
