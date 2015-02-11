@@ -22,7 +22,7 @@
 #else
  #define Malloc(amount) malloc(amount)
  #define Calloc(nmemb,amount) calloc(nmemb,amount)
- #define Strdup(s) _strdup(s)
+ #define Strdup(s) strdup(s)
  #define Realloc(ptr,amount) realloc(ptr,amount)
  #define Free(ptr) free(ptr)
 #endif

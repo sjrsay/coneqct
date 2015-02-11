@@ -4,6 +4,12 @@
 #ifndef WPDS_H
 #define WPDS_H
 
+#ifdef __linux__
+#define EXPORT 
+#elif _WIN32
+#define EXPORT __declspec(dll)
+#endif
+
 /***************************************************************************/
 /* "Compatibility" macros for earlier versions of the library              */
 /* These may be eliminated in future versions.                             */
@@ -260,13 +266,13 @@ typedef struct wPathTrans {
 
 /* wInit initializes the package and should be called once before any other
    function of the library. */
-extern __declspec(dllexport) void wInit ();
+extern EXPORT void wInit ();
 
 /* wFinish reclaims the memory used by the package; this will usually be
    called at the end of the program. */
-extern __declspec(dllexport) void wFinish();
+extern EXPORT void wFinish();
 
-extern __declspec(dllexport) wSemiring* nulsr();
+extern EXPORT wSemiring* nulsr();
 
 
 /***************************************************************************/
@@ -276,7 +282,7 @@ extern __declspec(dllexport) wSemiring* nulsr();
    twice with the same argument will produce the same identifier. The function
    calls strdup() on the argument, which means that the user can release the
    string afterwards without causing harm. */
-extern _declspec(dllexport) wIdent wIdentCreate(char*);
+extern EXPORT wIdent wIdentCreate(char*);
 
 /* Map an identifier to its string (the reverse of wIdentCreate). */
 extern char* wIdentString (wIdent);
@@ -296,19 +302,19 @@ extern char wIsFinal (wIdent);
 /* Create an empty pushdown system (i.e. one without any rules), which is
    associated with a semiring. The operations specified in the semiring will
    be used in wPDSInsert and wPDSDelete. 				   */
-extern __declspec(dllexport) wPDS* wPDSCreate(wSemiring*);
+extern EXPORT wPDS* wPDSCreate(wSemiring*);
 
 /* Create a rule inside a weighted PDS. The wIdent arguments are the left- 
    hand-side and right-hand-side symbols in the same order as in wRule, the
    last argument is the semring value. Zero (0) should be used to indicate
    missing stack symbols. The function will create a reference to the
    semiring value. The user field of the rule will be NULL. */
-extern __declspec(dllexport) wRule *wPDSInsert(wPDS*, wIdent, wIdent,
+extern EXPORT wRule *wPDSInsert(wPDS*, wIdent, wIdent,
 				 wIdent, wIdent, wIdent, wSRvalue);
 
 /* Free the memory used by the PDS and its rules; semiring values
    associated with rules will be dereferenced. */
-extern __declspec(dllexport) void wPDSDelete(wPDS*);
+extern EXPORT void wPDSDelete(wPDS*);
 
 extern int* wPDSSharedRule(wPDS*);
 
@@ -317,7 +323,7 @@ extern int* wPDSSharedRule(wPDS*);
 
 /* Create an empty automaton (initially without any transitions). The
    given semiring will be used in all future operations on transitions. */
-extern __declspec(dllexport) wFA* wFACreate(wSemiring*);
+extern EXPORT wFA* wFACreate(wSemiring*);
 
 /* Create a transition inside an automaton with the specified semiring value.
    If transition is already in the automaton, the new value will be combined
@@ -330,15 +336,15 @@ extern __declspec(dllexport) wFA* wFACreate(wSemiring*);
    operation, the 'delta' field of the returned transition contains the
    difference between the given semiring value and the previous value of
    the transition. */
-extern __declspec(dllexport) wTrans* wFAInsert(wFA*, wIdent, wIdent, wIdent, wSRvalue, int*);
+extern EXPORT wTrans* wFAInsert(wFA*, wIdent, wIdent, wIdent, wSRvalue, int*);
 
 /* Locate a transition with the given source state, input symbol, target
    state in the automaton (returns NULL if not found). */
-extern __declspec(dllexport) wTrans* wFAFind(wFA*, wIdent, wIdent, wIdent);
+extern EXPORT wTrans* wFAFind(wFA*, wIdent, wIdent, wIdent);
 
 /* Delete an automaton, reclaiming the memory. All transitions will be
    freed and their semiring values dereferenced. */
-extern __declspec(dllexport) void wFADelete(wFA*);
+extern EXPORT void wFADelete(wFA*);
 
 
 /***************************************************************************/
@@ -378,7 +384,7 @@ enum { TRACE_NO, TRACE_COPY, TRACE_REF, TRACE_REF_TOTAL };
    TRACE_YES is kept around for backward compatibility, but is subject to
    change and should not be used anymore.
 */
-extern __declspec(dllexport) wFA* wPrestar(wPDS*, wFA*, char);
+extern EXPORT wFA* wPrestar(wPDS*, wFA*, char);
 extern wFA* wPoststar (wPDS*,wFA*,char);
 
 
