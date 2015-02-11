@@ -3,12 +3,12 @@ I = { run: void -> void }
 f: I
 ------------------------------------
 
-let x = new {z1: VarInt;} in
-  new {z2:I; 
-    run: \z3. if x.val=0 then (x.val := 1; f.run(); if x.val = 2 then skip else (while 1 do skip))
+let x = new {_: VarInt;} in
+  new {_:I; 
+    run: \_. if x.val=0 then (x.val := 1; f.run(); if x.val = 2 then skip else (while 1 do skip))
                          else (if x.val = 1 then x.val := 2 else (while 1 do skip))
   }
 
 =?=
 
-new {z:I; run:\zz. while 1 do skip}
+new {_:I; run:\_. while 1 do skip}

@@ -55,6 +55,7 @@ rule tokenizeMain =
 	| 'r' digit+      { RID (Int32.Parse ((lexeme lexbuf).Remove(0,1))) }
     | lalpha idChar*  { ID (lexeme lexbuf) }
 	| ualpha idChar*  { IID (lexeme lexbuf) }
+	| '_'             { UNDERSCORE }
 	| digit+          { NUM (Int32.Parse (lexeme lexbuf)) }
 	| '-'('-'+)       { BAR }
 	| '+'             { PLUS }
