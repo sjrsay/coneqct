@@ -25,7 +25,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Inputs", "Inputs", "{148761
 		tests\inputs\inpbad.imj = tests\inputs\inpbad.imj
 	EndProjectSection
 EndProject
-Project("{2857B73E-F847-4B02-9238-064979017E93}") = "WPDS", "WPDS\WPDS.cproj", "{F15A8FF9-D860-4558-BB69-D4D34FB85F04}"
+Project("{2857B73E-F847-4B02-9238-064979017E93}") = "WPDS", "wpds\WPDS.cproj", "{F15A8FF9-D860-4558-BB69-D4D34FB85F04}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
