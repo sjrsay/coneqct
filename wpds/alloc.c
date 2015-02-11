@@ -23,7 +23,7 @@ void* Calloc_(size_t nmemb, size_t amount, char *file, int line)
 
 char* Strdup_(char *s, char *file, int line)
 {
-	char *result = _strdup(s);
+	char *result = strdup(s);
 	printf("malloc on %p at %s:%d\n",result,file,line);
 	return result;
 }
