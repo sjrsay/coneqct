@@ -8,7 +8,7 @@
     <OutputType>Library</OutputType>
     <RootNamespace>IMJEquivTests</RootNamespace>
     <AssemblyName>IMJEquivTests</AssemblyName>
-    <TargetFrameworkVersion>v4.5.1</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
     <Name>IMJEquivTests</Name>
     <TargetFrameworkProfile />
