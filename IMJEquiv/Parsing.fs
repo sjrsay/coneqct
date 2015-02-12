@@ -42,8 +42,12 @@ let move (fn: String) (s: String) : List<Move> = parse fn Parser.Move s
 let input (fn: String) : ITbl * TyEnv * Term * Term = 
   let str = System.IO.File.ReadAllText fn
   let d, g, tm1, tm2 = parse fn Parser.Input str
+  let varIntDefn = 
+    let defs = Map.ofList [("_val", IFld Int)]
+    Eqn defs
+  let d' = Map.add "_VarInt" varIntDefn d
   let g' = 
     match g with
     | []   -> [("__cxt", Void)]
     | _::_ -> g
-  (d, g', tm1, tm2)
+  (d', g', tm1, tm2)
