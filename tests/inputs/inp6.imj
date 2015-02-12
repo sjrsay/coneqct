@@ -1,0 +1,18 @@
+I = { m:void -> void },
+J = { n:void -> void },
+C = { begin: void -> void, cmd1: void -> void, cmd2: void -> void, end: void -> void },
+W = { within: J -> void }
+
+c: C
+---------------------------
+
+new {z:I; m:\_. c.begin();c.cmd1();c.cmd2();c.end() }
+
+=?=
+
+let scoper = new {_:W; within:\i.c.begin();i.n();c.end()} in
+new {z:I;
+  m:\_.
+    let cmds = new {_:J; n:\_.c.cmd1();c.cmd2()} in
+    scoper.within(cmds)
+}
