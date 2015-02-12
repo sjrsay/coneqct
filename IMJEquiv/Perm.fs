@@ -6,6 +6,9 @@ type Perm<'a> when 'a : comparison = Map<'a,'a>
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Perm =
   
+  /// Given a map m from B to C and a map p from B to B, 
+  /// preApply m p is the map from B to C that takes
+  /// p(k) to v whenever m(k) = v.
   let preApply (m: Map<'a,'b>) (p: Perm<'a>) : Map<'a,'b> =
     Map.fold (fun m' k v -> Map.add p.[k] v m') Map.empty m
 

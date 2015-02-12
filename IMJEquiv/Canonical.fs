@@ -201,13 +201,13 @@ module Canonical =
     let u = newVar ()
     let skipLet  = Let (u, Skip, Var u)
     let whileLet = Let (x, While (y, skipLet), Var x)
-    let assnLet  = Let (newVar (), Assn (y, "val", z), whileLet)
+    let assnLet  = Let (newVar (), Assn (y, "_val", z), whileLet)
     let constLet = Let (z, Num 1, assnLet)
-    let newLet   = Let (y, NewB (newVar (), "VarInt", []), constLet)
+    let newLet   = Let (y, NewB (newVar (), "_VarInt", []), constLet)
     newLet
 
-  let typeOfCanLet (d: ITbl) (g: TyEnv) (cl: CanLet) : Ty =
-    failwith "Not implemented yet"
+  let letout (c: CanLet) : Canon =
+    let x = newVar () in Canon.Let (x,c,Var x)
 
   let rec canonise (d: ITbl) (e: TyEnv) (t: Term) : Canon =
     match t with
@@ -230,7 +230,6 @@ module Canonical =
         let canm  = canonise d e m
         let canm' = canonise d e m'
         match (canm, canm') with
-        // This needs to check for casting errors
         | NewR _, _    -> canonise d e (Term.Num 0)
         | _, NewR _    -> canonise d e (Term.Num 0)
         | NullR, NullR -> canonise d e (Term.Num 0)
@@ -282,12 +281,15 @@ module Canonical =
         match cm with
         | NullR _ -> div
         | NewR (oi, t, r, ms) ->
-            // Need to know type of r.f in order to return default value
-            // also possible divergence due to mis-casting
-            div
+            let fty = Types.ofFld d r f
+            let dval = Val.defaultOfTy fty
+            match dval with
+            | VNul   -> Canon.NullR
+            | VNum n -> letout (CanLet.Num n)
+            | VStar  -> letout (CanLet.Skip)
+            | VReg _ -> failwith "Not a possible default value"
         | Var x -> 
-            let x' = newVar ()
-            Let (x', Fld (x, f), Var x')
+            letout (Fld (x, f))
         | Let (x, clet, c) ->
             let x' = newVar ()
             let v  = newVar ()
@@ -307,7 +309,6 @@ module Canonical =
             let lets = List.fold2 (fun l z n -> lemma34 z n l) let1 zs cns
             lets
         | NewR (oi, t, r, ms) ->
-            // Have to account for casting errors here
             match List.tryFind (fun (p: CanMeth) -> p.Name = mth) ms with
             | None -> div
             | Some p -> 
@@ -333,8 +334,11 @@ module Canonical =
             let y = newVar ()
             Let (y, Cast(i,x), Var y)
         | NewR (oi, t, r, ms) ->
-            // Check relationship between oi and i
-            NewR (Some i, t, r, ms)
+            match oi with
+            | None -> NewR (Some i, t, r, ms)
+            | Some i' when Types.subtype d i' i -> 
+                NewR (Some i, t, r, ms)
+            | _ -> div
     | Term.LetCast (x, i, y, m) ->
         Let (x, Cast(i, y), canonise d e m)
     | Term.LetCl (x, y, mth, ns, m) ->
@@ -346,8 +350,19 @@ module Canonical =
     | Term.Let (x, m, m') ->
         lemma34 x (canonise d e m) (canonise d e m')
     | Term.While (m, m') ->
-        // We need the varint type here
-        div
+        let r = newVar ()
+        let newVarInt = CanLet.NewB (newVar (),"_VarInt",[])
+        let cm = canonise d e m
+        let cm' = canonise d e m'
+        let cmVar = newVar ()
+        let rAssn = CanLet.Assn (r,"_val",cmVar)
+        let rAssnLet = let x = newVar () in Canon.Let (x, rAssn, Var x)
+        let bodyLet = lemma34 (newVar ()) cm' rAssnLet
+        let whilec =  CanLet.While (r, bodyLet)
+        let whilelet = let x = newVar () in Canon.Let (x, whilec, Var x)
+        let inlet = Canon.Let (newVar (), rAssn, whilelet)
+        let total = Canon.Let (r, newVarInt, inlet)
+        total
     | Term.New (t, r, ms) ->
         let canMeth (m: MethSpec) : CanMeth =
           let argTys, _ = Types.ofMeth d r m.Name
