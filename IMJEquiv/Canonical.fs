@@ -122,29 +122,62 @@ module Canonical =
         Body = subst sub m.Body
     }
 
-  let rec inlineCalls (ms: List<CanMeth>) (xs: List<Ident>) (cm': Canon) : Canon =
+  let rec lemma34 (x: Ident) (cm: Canon) (cm': Canon) : Canon =
+    match cm with
+    | NullR -> NullR
+    | Var y -> subst (y, x) cm'
+    | NewR (oi, t, b, ms) ->
+        let cmAsCanLet = NewB (t, b, ms) 
+        match oi with
+        | None -> Let (x, cmAsCanLet, cm')
+        | Some i ->
+            let y = newVar ()
+            let cast = Cast (i, y) 
+            let bdy = Let (x, cast, cm')
+            Let (y, cmAsCanLet, bdy)
+     | Let (y, clet, c') ->
+         Let (y, clet, lemma34 x c' cm')
+     | If (y, c1, c2) ->
+         If (y, lemma34 x c1 cm', lemma34 x c2 cm')
+
+  let rec inlineCalls (mp: Map<Ident,List<CanMeth>>) (cm': Canon) : Canon * Bool =
     match cm' with
-    | NullR -> cm'  
-    | Var x ->  cm'
-    | NewR (oi, x, i, ns) -> NewR (oi, x, i, List.map (inlineCallsInMeth ms xs) ns)
+    | NullR -> (cm',false)
+    | Var x ->  (cm',false)
+    | NewR (oi, x, i, ns) -> 
+        let ns',b = List.fold (fun (ns',b) n -> let n',b' = inlineCallsInMeth mp n in (n'::ns', b||b')) ([],false) ns
+        (NewR (oi, x, i, ns'),b)
     | Let (z, cl, c) -> 
         match cl with 
-        | Call (w, m, zs) when List.contains w xs ->
+        | Call (w, m, zs) when Map.containsKey w mp ->
             // This ignores potential casting problems   
-            match List.tryFind (fun (n:CanMeth) -> n.Name = m) ms with
+            match List.tryFind (fun (n:CanMeth) -> n.Name = m) mp.[w] with
             | None     -> failwithf "Expected to find method %O" m 
             | Some mth ->
-                let newcl = List.fold2 (fun b x y -> subst (x, y) b) mth.Body mth.Vars zs     
-                lemma34 z newcl c
+                let newcl = List.fold2 (fun b x y -> subst (x, y) b) mth.Body zs mth.Vars     
+                (lemma34 z newcl c, true)
+        | CanLet.NewB (b,i,ns) ->
+            let mp' = Map.add z ns mp
+            let cl',b1 = inlineCallsInCanLet mp cl
+            let c', b2 = inlineCalls mp' c
+            (Let (z, cl', c'), b1||b2) 
         | _ ->
-            let xs' = 
+            let mp' = 
               match cl with
-              | Cast (_, y) -> if List.contains y xs then z::xs else xs 
-              | _           -> xs
-            Let (z, inlineCallsInCanLet ms xs cl, inlineCalls ms xs' c)
-    | If (x, c1, c2) -> If (x, inlineCalls ms xs c1, inlineCalls ms xs c2)
+              | Cast (_, y) -> 
+                  match Map.tryFind y mp with
+                  | None -> mp
+                  | Some xs -> Map.add z xs mp
+              | _           -> mp
+            let cl',b1 = inlineCallsInCanLet mp cl
+            let c', b2 = inlineCalls mp' c
+            (Let (z, cl', c'), b1||b2)
+    | If (x, c1, c2) -> 
+        let c1',b1 = inlineCalls mp c1
+        let c2',b2 = inlineCalls mp c2
+        (If (x, c1', c2'), b1||b2)
 
-  and inlineCallsInCanLet (ms: List<CanMeth>) (xs: List<Ident>) (cm': CanLet) : CanLet =
+  and inlineCallsInCanLet (mp: Map<Ident,List<CanMeth>>) (cm': CanLet) : CanLet * Bool =
     match cm' with
     | NullL _
     | Num _ 
@@ -152,36 +185,29 @@ module Canonical =
     | Plus _ 
     | Eq _ 
     | Assn _ 
-    | Cast _ -> cm'
-    | Call (w, m, zs) -> cm'
-    | Fld (x, f)   -> cm'
-    | While (x, m) -> While (x, inlineCalls ms xs m)
-    | NewB (x, i, ns) -> NewB (x, i, List.map (inlineCallsInMeth ms xs) ns) 
+    | Cast _ -> (cm',false)
+    | Call (w, m, zs) -> (cm',false)
+    | Fld (x, f)   -> (cm',false)
+    | While (x, m) -> 
+        let c',b = inlineCalls mp m
+        (While (x, c'), b)
+    | NewB (x, i, ns) -> 
+        let ns',b = List.fold (fun (ns',b) n -> let n',b' = inlineCallsInMeth mp n in (n'::ns', b||b')) ([],false) ns
+        (NewB (x, i, ns'), b)
 
-  and inlineCallsInMeth (ms: List<CanMeth>) (xs: List<Ident>) (cm': CanMeth) : CanMeth =
-    {
-      cm' with
-        Body = inlineCalls ms xs cm'.Body
-    }
+  and inlineCallsInMeth (mp: Map<Ident,List<CanMeth>>) (cm': CanMeth) : CanMeth * Bool =
+    // Remove shadowed variables
+    let mp' = Map.filter (fun k _ -> not <| List.contains k cm'.Vars) mp
+    let body,b = inlineCalls mp' cm'.Body
+    ({ cm' with Body = body }, b)
 
-  and lemma34 (x: Ident) (cm: Canon) (cm': Canon) : Canon =
-    match cm with
-    | NullR -> NullR
-    | Var y -> subst (y, x) cm'
-    | NewR (oi, t, b, ms) ->
-        let cmAsCanLet = NewB (t, b, ms) 
-        let newcm' =  inlineCalls ms [x] cm'
-        match oi with
-        | None -> Let (x, cmAsCanLet, newcm')
-        | Some i ->
-            let y = newVar ()
-            let cast = Cast (i, y) 
-            let bdy = Let (x, cast, newcm')
-            Let (y, cmAsCanLet, bdy)
-     | Let (y, clet, c') ->
-         Let (y, clet, lemma34 x c' cm')
-     | If (y, c1, c2) ->
-         If (y, lemma34 x c1 cm', lemma34 x c2 cm')
+  let inlineAllCalls (cm: Canon) : Canon =
+    
+    let rec fix (c: Canon) : Canon =
+      let c',b = inlineCalls Map.empty c
+      if b then fix c' else c'
+
+    fix cm
 
   let toTerm (c: Canon) : Term = Canon.ToTerm c
   let methToTerm (cm: CanMeth) : MethSpec = CanMeth.ToMethSpec cm
@@ -361,7 +387,8 @@ module Canonical =
         let whilec =  CanLet.While (r, bodyLet)
         let whilelet = let x = newVar () in Canon.Let (x, whilec, Var x)
         let inlet = Canon.Let (newVar (), rAssn, whilelet)
-        let total = Canon.Let (r, newVarInt, inlet)
+        let cmlet = lemma34 cmVar cm inlet
+        let total = Canon.Let (r, newVarInt, cmlet)
         total
     | Term.New (t, r, ms) ->
         let canMeth (m: MethSpec) : CanMeth =

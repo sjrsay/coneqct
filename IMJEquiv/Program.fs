@@ -6,6 +6,8 @@ open System.Diagnostics
 
 let outputFile = ref "auto.dot"
 let inputFile = ref ""
+let printC1 = ref false
+let printC2 = ref false
 let printA1 = ref false
 let printA2 = ref false
 
@@ -30,8 +32,11 @@ let getInputFile (s:String) : Unit =
 
 // Command line options
 let specs = [
-    "-pa1", ArgType.Set printA1, "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
-    "-pa2", ArgType.Set printA2, "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
+    "-maxint", ArgType.Int (fun n -> Val.maxint <- n), "Set the value of the largest integer."
+    "-pc1",    ArgType.Set printC1,                    "Write canonical form of term 1 to the terminal."
+    "-pc2",    ArgType.Set printC2,                    "Write canonical form of term 2 to the terminal."
+    "-pa1",    ArgType.Set printA1,                    "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
+    "-pa2",    ArgType.Set printA2,                    "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
   ] 
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 
@@ -98,14 +103,20 @@ let main _ =
     do printf "Processing instance from %s.\n\n" !inputFile
 
     let c1 = Canonical.canonise d g tm1
+    let c1' = Canonical.inlineAllCalls c1
+    if !printC1 then printf "Canonical form of term 1: %A\n\n" c1'
+
     let c2 = Canonical.canonise d g tm2
+    let c2' = Canonical.inlineAllCalls c2
+    if !printC2 then printf "Canonical form of term 2: %A\n\n" c2'
+
     let mus = Move.ofContext 1 g
     let inits = seq {
         for mu in mus do 
           for s in Store.fromMoves d g mu do
             yield (mu, s)
       }
-    let res = Seq.fold (fun r (mu, s) -> Result.combine r (solveFromInitPos d g c1 c2 mu s)) Equivalent inits
+    let res = Seq.fold (fun r (mu, s) -> Result.combine r (solveFromInitPos d g c1' c2' mu s)) Equivalent inits
     let dur = totalTimer.ElapsedMilliseconds
     printf "Result: %A (%dms).\n\n" res dur
     0

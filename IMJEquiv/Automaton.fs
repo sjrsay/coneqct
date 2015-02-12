@@ -746,131 +746,133 @@ module Automaton =
        | Let (x, CanLet.Call (y,m,zs), c) ->
           let (Iface yi) = Types.getTyfromTyEnv y g
           let (_, xty) = Types.ofMeth d yi m
-          let (ValM (VReg rj)) = mu.[Types.getPosInTyEnv y g]
-          let mapper z : Val =
-            match mu.[Types.getPosInTyEnv z g] with
-              | ValM v -> v
-              | _ -> failwith "Expected a value move."
-          let vs = List.map mapper zs
-          let q0 = newState ()
-          let q1 = newState ()
-          let callm = Call (rj, m, vs)
-          let l = Noop (Set.empty, (callm, s))
-          let calltr = LabelT (q0, l, q1)
+          match mu.[Types.getPosInTyEnv y g] with
+          | ValM (VReg rj) ->
+              let mapper z : Val =
+                match mu.[Types.getPosInTyEnv z g] with
+                  | ValM v -> v
+                  | _ -> failwith "Expected a value move."
+              let vs = List.map mapper zs
+              let q0 = newState ()
+              let q1 = newState ()
+              let callm = Call (rj, m, vs)
+              let l = Noop (Set.empty, (callm, s))
+              let calltr = LabelT (q0, l, q1)
 
-          let states0 = [q0; q1]
-          let owner0 = Map.ofList [(q0, P); (q1, O)]
-          let rank0 = Map.ofList [(q0, s); (q1, s)]
-          let trel0 = [calltr]
-          let final0 = []
-          let initS0 = q0
-          let initR0 = Set.toList (Map.domain s)
+              let states0 = [q0; q1]
+              let owner0 = Map.ofList [(q0, P); (q1, O)]
+              let rank0 = Map.ofList [(q0, s); (q1, s)]
+              let trel0 = [calltr]
+              let final0 = []
+              let initS0 = q0
+              let initR0 = Set.toList (Map.domain s)
         
-          let getPair st =
-            let oldrs = Map.domain s
-            let newrs = Map.domain st
-            let nuX = Set.difference newrs oldrs
-            (nuX, newrs)
+              let getPair st =
+                let oldrs = Map.domain s
+                let newrs = Map.domain st
+                let nuX = Set.difference newrs oldrs
+                (nuX, newrs)
 
-          match xty with
-            | Void ->
-                let z0 = muSupp mu
-                let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
-                let allStores = Store.stores d (Store.tySupp d s) tyZ0
-                let folder (states, owner: Map<State,Player>, rank, trel, final) s0' =
-                  let (nuX, rY) = getPair s0'
-                  let mu' = List.append mu [ValM VStar]
-                  let g'  = List.append g [(x, xty)]
-                  let autoc = fromCanon d g' c mu' s0'
-                  let q' = newState ()
-                  let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VStar), s0')), q')
-                  let ret2 = SetT (q', rY, autoc.InitS)
-                  let states' = q' :: states @ autoc.States
-                  let owner' = Map.union (Map.add q' P owner) autoc.Owner 
-                  let rank' = Map.union (Map.add q' s0' rank) autoc.Rank
-                  let trel' = [ret1; ret2] @ trel @ autoc.TransRel
-                  let final' = final @ autoc.Final
-                  (states', owner', rank', trel', final')
-                let (states, owner, rank, trel, final) = List.fold folder (states0, owner0, rank0, trel0, final0) allStores 
-                {
-                  States = states
-                  Owner = owner
-                  InitS = initS0
-                  TransRel = trel
-                  InitR = initR0
-                  Final = final
-                  Rank = rank
-                }
-            | Iface i ->
-                let z0 = muSupp mu
-                let domS = Map.domain s
-                let rj's = (Store.nextReg domS) :: Set.toList domS
-                let rj'folder (states', owner', rank', trel', final') rj' =
-                  let z0' = Set.add rj' z0 
-                  let tyZ0' = Set.map (fun r -> (r, Store.tyOfReg s r)) z0'
-                  let allStores = Store.stores d (Store.tySupp d s) tyZ0'
-                  let mu' = List.append mu [ValM (VReg rj')]
-                  let g'  = List.append g [(x, xty)]
-                  let s0'folder (states, owner, rank, trel, final) s0' =
-                    let (nuX, rY) = getPair s0'
-                    let autoc = fromCanon d g' c mu' s0'
-                    let q' = newState ()
-                    let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VReg rj'), s0')), q')
-                    let ret2 = SetT (q', rY, autoc.InitS)
-                    let states'' = q' :: states @ autoc.States
-                    let owner'' = Map.union (Map.add q' P owner) autoc.Owner
-                    let rank'' = Map.union (Map.add q' s0' rank) autoc.Rank
-                    let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
-                    let final'' = final @ autoc.Final
-                    (states'', owner'', rank'', trel'', final'')
-                  let (states, owner, rank, trel, final) = List.fold s0'folder (states', owner', rank', trel', final') allStores 
-                  (states, owner, rank, trel, final)
-                let (states, owner, rank, trel, final) = List.fold rj'folder (states0, owner0, rank0, trel0, final0) rj's
-                {
-                  States = states
-                  Owner = owner
-                  InitS = initS0
-                  TransRel = trel
-                  InitR = initR0
-                  Final = final
-                  Rank = rank
-                }  
-            | Int ->
-                let z0 = muSupp mu
-                let domS = Map.domain s
-                let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
-                let allStores = Store.stores d (Store.tySupp d s) tyZ0
-                let s0'folder (states, owner, rank, trel, final) s0' =
-                  let (nuX, rY) = getPair s0'
-                  let jfolder (states', owner', rank', trel', final') j =
-                    let mu' = List.append mu [ValM (VNum j)]
-                    let g'  = List.append g [(x, xty)]
-                    let autoc = fromCanon d g' c mu' s0'
-                    let q' = newState ()
-                    let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VNum j), s0')), q')
-                    let ret2 = SetT (q', rY, autoc.InitS)
-                    let states'' = q' :: states' @ autoc.States
-                    let owner'' = Map.union (Map.add q' P owner') autoc.Owner 
-                    let rank'' = Map.union (Map.add q' s0' rank') autoc.Rank
-                    let trel'' = [ret1; ret2] @ trel' @ autoc.TransRel
-                    let final'' = final' @ autoc.Final
-                    (states'', owner'', rank'', trel'', final'')
-                  let js = [0..Val.maxint]
-                  let (states', owner', rank', trel', final') = List.fold jfolder (states, owner, rank, trel, final) js
-                  (states', owner', rank', trel', final')
-                let (states, owner, rank, trel, final) = List.fold s0'folder (states0, owner0, rank0, trel0, final0) allStores
-                {
-                  States = states
-                  Owner = owner
-                  InitS = initS0
-                  TransRel = trel
-                  InitR = initR0
-                  Final = final
-                  Rank = rank
-                }
+              match xty with
+                | Void ->
+                    let z0 = muSupp mu
+                    let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+                    let allStores = Store.stores d (Store.tySupp d s) tyZ0
+                    let folder (states, owner: Map<State,Player>, rank, trel, final) s0' =
+                      let (nuX, rY) = getPair s0'
+                      let mu' = List.append mu [ValM VStar]
+                      let g'  = List.append g [(x, xty)]
+                      let autoc = fromCanon d g' c mu' s0'
+                      let q' = newState ()
+                      let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VStar), s0')), q')
+                      let ret2 = SetT (q', rY, autoc.InitS)
+                      let states' = q' :: states @ autoc.States
+                      let owner' = Map.union (Map.add q' P owner) autoc.Owner 
+                      let rank' = Map.union (Map.add q' s0' rank) autoc.Rank
+                      let trel' = [ret1; ret2] @ trel @ autoc.TransRel
+                      let final' = final @ autoc.Final
+                      (states', owner', rank', trel', final')
+                    let (states, owner, rank, trel, final) = List.fold folder (states0, owner0, rank0, trel0, final0) allStores 
+                    {
+                      States = states
+                      Owner = owner
+                      InitS = initS0
+                      TransRel = trel
+                      InitR = initR0
+                      Final = final
+                      Rank = rank
+                    }
+                | Iface i ->
+                    let z0 = muSupp mu
+                    let domS = Map.domain s
+                    let rj's = (Store.nextReg domS) :: Set.toList domS
+                    let rj'folder (states', owner', rank', trel', final') rj' =
+                      let z0' = Set.add rj' z0 
+                      let tyZ0' = Set.map (fun r -> (r, Store.tyOfReg s r)) z0'
+                      let allStores = Store.stores d (Store.tySupp d s) tyZ0'
+                      let mu' = List.append mu [ValM (VReg rj')]
+                      let g'  = List.append g [(x, xty)]
+                      let s0'folder (states, owner, rank, trel, final) s0' =
+                        let (nuX, rY) = getPair s0'
+                        let autoc = fromCanon d g' c mu' s0'
+                        let q' = newState ()
+                        let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VReg rj'), s0')), q')
+                        let ret2 = SetT (q', rY, autoc.InitS)
+                        let states'' = q' :: states @ autoc.States
+                        let owner'' = Map.union (Map.add q' P owner) autoc.Owner
+                        let rank'' = Map.union (Map.add q' s0' rank) autoc.Rank
+                        let trel'' = [ret1; ret2] @ trel @ autoc.TransRel
+                        let final'' = final @ autoc.Final
+                        (states'', owner'', rank'', trel'', final'')
+                      let (states, owner, rank, trel, final) = List.fold s0'folder (states', owner', rank', trel', final') allStores 
+                      (states, owner, rank, trel, final)
+                    let (states, owner, rank, trel, final) = List.fold rj'folder (states0, owner0, rank0, trel0, final0) rj's
+                    {
+                      States = states
+                      Owner = owner
+                      InitS = initS0
+                      TransRel = trel
+                      InitR = initR0
+                      Final = final
+                      Rank = rank
+                    }  
+                | Int ->
+                    let z0 = muSupp mu
+                    let domS = Map.domain s
+                    let tyZ0 = Set.map (fun r -> (r, Store.tyOfReg s r)) z0
+                    let allStores = Store.stores d (Store.tySupp d s) tyZ0
+                    let s0'folder (states, owner, rank, trel, final) s0' =
+                      let (nuX, rY) = getPair s0'
+                      let jfolder (states', owner', rank', trel', final') j =
+                        let mu' = List.append mu [ValM (VNum j)]
+                        let g'  = List.append g [(x, xty)]
+                        let autoc = fromCanon d g' c mu' s0'
+                        let q' = newState ()
+                        let ret1 = LabelT (q1, Noop (nuX, (Ret (rj,m,VNum j), s0')), q')
+                        let ret2 = SetT (q', rY, autoc.InitS)
+                        let states'' = q' :: states' @ autoc.States
+                        let owner'' = Map.union (Map.add q' P owner') autoc.Owner 
+                        let rank'' = Map.union (Map.add q' s0' rank') autoc.Rank
+                        let trel'' = [ret1; ret2] @ trel' @ autoc.TransRel
+                        let final'' = final' @ autoc.Final
+                        (states'', owner'', rank'', trel'', final'')
+                      let js = [0..Val.maxint]
+                      let (states', owner', rank', trel', final') = List.fold jfolder (states, owner, rank, trel, final) js
+                      (states', owner', rank', trel', final')
+                    let (states, owner, rank, trel, final) = List.fold s0'folder (states0, owner0, rank0, trel0, final0) allStores
+                    {
+                      States = states
+                      Owner = owner
+                      InitS = initS0
+                      TransRel = trel
+                      InitR = initR0
+                      Final = final
+                      Rank = rank
+                    }
+          | _ -> empty s
        | Let (z, While (r, c1), c2) -> 
            let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv r g]
-           if (snd s.[rk']).["val"] = VNum 0 then
+           if (snd s.[rk']).["_val"] = VNum 0 then
              fromCanon d g c2 mu s
            else
              let z0 = muSupp mu
@@ -911,7 +913,7 @@ module Automaton =
                               let z1' = Set.intersect (Set.union (Map.domain r) x) z1
                               let r'' = Map.filter (fun k _ -> Set.contains k z1') s1'
                               let targetState = 
-                                if (snd s.[rk']).["val"] = VNum 0 then
+                                if (snd s.[rk']).["_val"] = VNum 0 then
                                   c2s.[s1'].InitS
                                 else
                                   c1s.[s1'].InitS

@@ -121,7 +121,7 @@ Params:
   | BID Params                                       { $1 :: $2 }
 
 Args:
-  |                                                 { [] }
+  |                                                 { [Term.Skip] }
   | Term                                            { [$1] }
   | Term COMMA Args1                                { $1 :: $3 }
   | Term COMMA Recover                              { reportError parseState "Expected argument" 3 }
