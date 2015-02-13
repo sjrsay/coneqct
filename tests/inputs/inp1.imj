@@ -7,7 +7,7 @@ Cell = { get:void -> Empty, set:Empty -> void }
 ------------------------------------------------------
 
 let v = new {_:VarEmpty;} in
-new {_:Cell; get:\_.v.val, set:\y.if y=null then (while 1 do skip) else (v.val := y)}
+new {_:Cell; get:\_.v.val, set:\y.if y=null then div else (v.val := y)}
 
   =?=
 
@@ -16,6 +16,6 @@ let v = new {_:VarEmpty;} in
 let w = new {_:VarEmpty;} in 
 new {_:Cell; 
   get:\_.if b.val = 1 then (b.val := 0; v.val) else (b.val := 1; w.val), 
-  set:\y.if y=null then (while 1 do skip) else (v.val := y; w.val := y)
+  set:\y.if y=null then div else (v.val := y; w.val := y)
 }
   

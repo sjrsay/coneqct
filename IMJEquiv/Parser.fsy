@@ -29,7 +29,7 @@ let anon () =
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT TIMES
 %token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE NULL
 %token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
-%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP UNDERSCORE
+%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP UNDERSCORE DIV
 %token <String> ID IID
 %token <Int32> NUM RID
 
@@ -84,6 +84,7 @@ Term:
   | NEW LBRACE NewExp RBRACE                        { Term.New $3 }
   | NEW Recover                                     { reportError parseState "Expected left brace" 2 }
   | NEW LBRACE NewExp Recover                       { reportError parseState "Expected right brace" 4 }
+  | DIV                                             { Term.While (Term.Num 1, Term.Skip) }
   | LPAREN Term RPAREN                              { $2 }
 
 BID: 
@@ -226,11 +227,11 @@ Cxt:
 
 TermInCxt:
   | Cxt BAR Term                                    { ($1, $3) }
-  | Cxt Recover                                     { reportError parseState "Expected bar" 2 }
+  | Cxt Recover                                     { reportError parseState "Expected bar, or perhaps you're missing a comma?" 2 }
 
 Input:
-  | ITbl TyEnv BAR Term SEP Term                    { ($1, $2, $4, $6) }
-  | ITbl Recover                                    { reportError parseState "Malformed context, perhaps you're missing a comma?" 2}
+  | Cxt BAR Term SEP Term                           { let d, g = Cxt.separate $1 in (d, g, $3, $5) }
+  | Cxt Recover                                     { reportError parseState "Expected bar, or perhaps you're missing a comma?" 2 }
 
 Recover:
   | error                                           { true }
