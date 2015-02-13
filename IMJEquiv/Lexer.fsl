@@ -52,6 +52,7 @@ rule tokenizeMain =
 	| "else"          { ELSE }
 	| "new"           { NEW }
 	| "void"          { VOID }
+	| "div"           { DIV }
 	| 'r' digit+      { RID (Int32.Parse ((lexeme lexbuf).Remove(0,1))) }
     | lalpha idChar*  { ID (lexeme lexbuf) }
 	| ualpha idChar*  { IID (lexeme lexbuf) }
