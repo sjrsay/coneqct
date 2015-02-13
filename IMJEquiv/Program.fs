@@ -100,6 +100,15 @@ let main _ =
       | Lexer.LexerError  (_,l,c) -> exitWith (sprintf "Parse Error %d:%d: unknown symbol." l c)
       | _                         -> exitWith (sprintf "Parse Error: input is malformed.")
 
+    let ty1 = 
+      try TyCheck.inferETy d g tm1 with
+      | TyCheck.TypeError s -> exitWith (sprintf "Type Error: %s" s)
+    let ty2 = 
+      try TyCheck.inferETy d g tm2 with
+      | TyCheck.TypeError s -> exitWith (sprintf "Type Error: %s" s)
+    try TyCheck.unify ty1 ty2 with 
+    | TyCheck.UnifyError -> exitWith (sprintf "Type Error: term1 has type %O, but term2 has type %O" ty1 ty2)
+
     do printf "Processing instance from %s.\n\n" !inputFile
 
     let c1 = Canonical.canonise d g tm1
