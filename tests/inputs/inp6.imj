@@ -1,8 +1,11 @@
+/* Factoring out API calls to begin and end */
+
 I = { m:void -> void },
 J = { n:void -> void },
 C = { begin: void -> void, cmd1: void -> void, cmd2: void -> void, end: void -> void },
 W = { within: J -> void },
 c: C
+
 ---------------------------
 
 new {z:I; m:\_. c.begin();c.cmd1();c.cmd2();c.end() }
