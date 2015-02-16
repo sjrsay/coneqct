@@ -22,6 +22,22 @@ let anon () =
   incr anonNum
   "_" + (!anonNum).ToString()
 
+let mkEq (s: Term) (t: Term) : Term =
+  match s, t with
+  | BVar x, BVar y -> Term.VEq (x,y)
+  | _,      _      -> Term.Eq (s,t)
+
+let mkFld (s: Term) (f: FldId) : Term =
+  match s with
+  | BVar x -> Term.VFld (x,f)
+  | _      -> Term.Fld (s,f)
+
+let mkLet (x: Ident) (s: Term) (t: Term) : Term =
+  match s with
+  | Term.Cast (i, BVar y)   -> Term.LetCast (x,i,y,t)
+  | Term.Call (BVar y,m,ms) -> Term.LetCl (x,y,m,ms,t)
+  | _                       -> Term.Let (x,s,t)
+
 %}
 
 %start Term ITbl TyEnv TyTerm Store Input Move
@@ -56,7 +72,7 @@ Term:
   | SKIP						                    { Term.Skip }
   | Term PLUS Term				                    { Term.Plus ($1, $3) }
   | Term PLUS Recover                               { reportError parseState "Expected term" 3 }
-  | Term EQUALS Term				                { Term.Eq ($1, $3) }
+  | Term EQUALS Term				                { mkEq $1 $3 }
   | Term EQUALS Recover                             { reportError parseState "Expected term" 3 }
   | Term SEMICOLON Term			                    { Term.Seq ($1, $3) }
   | Term SEMICOLON Recover                          { reportError parseState "Expected term" 3 }
@@ -68,12 +84,12 @@ Term:
   | IF Term THEN Term ELSE Recover                  { reportError parseState "Expected term for if false branch" 6 }
   | Term STOP ID ASSN Term                          { Term.Assn ($1, $3, $5) }
   | Term STOP ID ASSN Recover                       { reportError parseState "Expected term" 3 }
-  | Term STOP ID                                    { Term.Fld ($1, $3) }
+  | Term STOP ID                                    { mkFld $1 $3 }
   | Term STOP Recover                               { reportError parseState "Expected field or method identifer" 3 }
   | Term STOP ID LPAREN Args RPAREN                 { Term.Call ($1, $3, $5) }
   | LPAREN IID RPAREN Term          %prec castterm  { Term.Cast ($2, $4) }
   | LPAREN IID RPAREN Recover                       { reportError parseState "Expected term to be cast" 4 }
-  | LET ID EQUALS Term IN Term      %prec letterm   { Term.Let ($2, $4, $6) }
+  | LET ID EQUALS Term IN Term      %prec letterm   { mkLet $2 $4 $6 }
   | LET ID EQUALS Term IN Recover                   { reportError parseState "Expected term for let body" 6 }
   | LET ID EQUALS Recover                           { reportError parseState "Expected term to be bound" 4 }
   | LET Recover                                     { reportError parseState "Expected identifier to bind to" 2 }
