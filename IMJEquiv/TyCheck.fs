@@ -48,7 +48,6 @@ and TyVar =
 type ETyEnv = List<Ident * ETy>
 
 exception UnifyError
-exception TypeError of String
 
 let private tyVarNum = ref 0
 let newTyVar () : TyVar =
@@ -209,3 +208,71 @@ and private infer (d: ITbl) (g: ETyEnv) (t: Term) : ETy =
 let inferETy (d: ITbl) (g: TyEnv) (t: Term) : ETy =
   let g' = List.map (fun (x,ty) -> (x,fromTy ty)) g
   infer d g' t
+
+let rec checkFragment (d: ITbl) (g: TyEnv) (t: Term) : Unit =
+  match t with
+  | BVar x -> 
+      let (Some ty) = TyEnv.lookup x g
+      if not (ITbl.isB d ty) then raise (TypeError (sprintf "Variable %O has type %O not in the B fragment." t ty))
+  | Num _ -> ()
+  | Skip -> ()
+  | Plus (m,n) ->
+      do checkFragment d g m
+      do checkFragment d g n
+  | Eq (m,n) -> 
+      do checkFragment d g m
+      do checkFragment d g n
+  | VEq (x,y) ->
+      let (Some tyx) = TyEnv.lookup x g
+      let (Some tyy) = TyEnv.lookup y g
+      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+  | Seq (m,n) ->
+      do checkFragment d g m
+      do checkFragment d g n
+  | Cond (m,n,p) ->
+      do checkFragment d g m
+      do checkFragment d g n
+      do checkFragment d g p
+  | Assn (m,f,n) ->
+      do checkFragment d g m
+      do checkFragment d g n
+  | Fld (m,f) ->
+      do checkFragment d g m
+  | VFld (x,f) ->
+      let (Some tyx) = TyEnv.lookup x g
+      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+  | Call (m,mth,ns) ->
+      do checkFragment d g m
+      do List.iter (checkFragment d g) ns
+  | Cast (j,m) ->
+      do checkFragment d g m
+  | Let (x,m,n) ->
+      let (Some tyx) = TyEnv.lookup x g
+      do checkFragment d g m
+      do checkFragment d g n
+      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+  | LetCast (x,j,y,m) ->
+      let (Some tyx) = TyEnv.lookup x g
+      let (Some tyy) = TyEnv.lookup y g
+      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+      do checkFragment d g m
+  | LetCl (x,y,mth,ns,n) ->
+      let (Some tyx) = TyEnv.lookup x g
+      let (Some tyy) = TyEnv.lookup y g
+      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+      do List.iter (checkFragment d g) ns
+      do checkFragment d g n
+  | While (m,n) ->
+      do checkFragment d g m
+      do checkFragment d g n
+  | New (z,i,ms) ->
+      if not (ITbl.isL d (Iface i)) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." z i))
+      let checkMeth (m: MethSpec) =
+        let tys, ty = Types.ofMeth d i m.Name
+        let g' = g @ List.zip m.Vars tys
+        checkFragment d g' m.Body
+      do List.iter checkMeth ms
+  | Null -> ()

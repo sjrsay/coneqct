@@ -102,12 +102,15 @@ let main _ =
 
     let ty1 = 
       try TyCheck.inferETy d g tm1 with
-      | TyCheck.TypeError s -> exitWith (sprintf "Type Error: %s" s)
+      | TypeError s -> exitWith (sprintf "Type Error: %s." s)
     let ty2 = 
       try TyCheck.inferETy d g tm2 with
-      | TyCheck.TypeError s -> exitWith (sprintf "Type Error: %s" s)
+      | TypeError s -> exitWith (sprintf "Type Error: %s." s)
     try TyCheck.unify ty1 ty2 with 
-    | TyCheck.UnifyError -> exitWith (sprintf "Type Error: term1 has type %O, but term2 has type %O" ty1 ty2)
+    | TyCheck.UnifyError -> exitWith (sprintf "Type Error: term1 has type %O, but term2 has type %O." ty1 ty2)
+
+    try ITbl.wellFormed d with
+    | TypeError s -> exitWith (sprintf "Type Error: %s." s)
 
     do printf "Processing instance from %s.\n\n" !inputFile
 

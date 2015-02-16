@@ -8,6 +8,8 @@ type IntId = String
 
 type RegId = Int32
 
+exception TypeError of String
+
 [<StructuredFormatDisplayAttribute("{Show}")>]
 type Ty = 
   | Void
@@ -76,6 +78,80 @@ module ITbl =
         let ss = Map.fold (fun ss s dfn -> match dfn with IFld ty -> (s,ty)::ss | _ -> ss) [] m
         ext @ ss
 
+  let rec isG (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i ->
+        let flds = fields d i
+        let mths = methods d i
+        List.isEmpty mths && List.forall (isG d << snd) flds
+
+  let rec isL (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i -> 
+        let flds = fields d i
+        let mths = methods d i
+        let fldsAreG = List.forall (isG d << snd) flds
+        let isGtoL (_,tys,ty) =
+          List.forall (isG d) tys && isL d ty 
+        let mthsAreGtoL = List.forall isGtoL mths
+        fldsAreG && mthsAreGtoL
+
+  let rec isR (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i ->
+        let flds = fields d i
+        let mths = methods d i
+        let fldsAreG = List.forall (isG d << snd) flds
+        let isLtoG (_,tys,ty) =
+          List.forall (isL d) tys && isG d ty 
+        let mthsAreLtoG = List.forall isLtoG mths
+        fldsAreG && mthsAreLtoG
+
+  let rec isB (d: ITbl) (t: Ty) : Bool =
+    isL d t && isR d t
+
+  let wellFormed (d: ITbl) : Unit =
+
+    let rec wfTy (seen: Set<IntId>) (t: Ty) : Unit =
+      match t with
+      | Int 
+      | Void -> ()
+      | Iface i ->
+          if Set.contains i seen then 
+            raise (TypeError (sprintf "Recursive dependency in interface table."))
+          else 
+            match Map.tryFind i d with
+            | None    -> raise (TypeError (sprintf "Definition of interface %O is missing." i))
+            | Some df -> wf (Set.add i seen) df
+
+    and wfIDfn (seen: Set<IntId>) (df: IDfn) : Unit =
+      let tys = 
+        match df with
+        | IFld ty -> [ty]
+        | IMth (tys,ty) -> ty::tys
+      List.iter (wfTy seen) tys
+
+    and wf (seen: Set<IntId>) (i: ITblDfn) : Unit =
+      let m = 
+        match i with
+        | Eqn m      -> m
+        | Ext (j, m) -> 
+            if Set.contains j seen then
+              raise (TypeError (sprintf "Recursive dependency in interface table."))
+            else
+              match Map.tryFind j d with
+              | None -> raise (TypeError (sprintf "Definition of interface %O is missing." i))
+              | Some df -> wf (Set.add j seen) df
+              m
+      Map.iter (fun _ df -> wfIDfn seen df) m
+
+    Map.iter (fun k tbldf -> wf (set [k]) tbldf) d
+
+    
+
 module Types =
   
   let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
@@ -83,11 +159,6 @@ module Types =
 
   let getTyfromTyEnv (x: Ident) (e: TyEnv) : Ty =
     snd (List.find (fun (y, _) -> x = y) e)
-
-  /// The constant `varInt` is the VarInt interface,
-  /// i.e. `{ val : int }`
-  let varInt =
-    Eqn (Map.singleton "val" (IFld Int))
 
   let rec ofFld (d: ITbl) (i: IntId) (f: FldId) : Ty =
     let foo (m: IDfnMap) : Option<Ty> =
