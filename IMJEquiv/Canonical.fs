@@ -252,6 +252,7 @@ module Canonical =
         let let1 = Let (x'', Plus (x, x'), Var x'')
         let let2 = lemma34 x' (canonise d e m') let1
         lemma34 x (canonise d e m) let2
+    | Term.VEq (x, y) -> canonise d e (Term.Eq (BVar x,BVar y))
     | Term.Eq (m, m') ->
         let canm  = canonise d e m
         let canm' = canonise d e m'
@@ -302,6 +303,7 @@ module Canonical =
         let let2 = Let (x'', Assn (x,f,x'), Var x'')
         let let1 = lemma34 x' (canonise d e m') let2
         lemma34 x (canonise d e m) let1
+    | Term.VFld (x,f) -> canonise d e (Term.Fld (BVar x, f))
     | Term.Fld (m, f) ->
         let cm = canonise d e m
         match cm with
