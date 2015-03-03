@@ -80,8 +80,7 @@
     <Compile Include="Product.fs" />
     <Compile Include="FPDRA.fs" />
     <Compile Include="Explosion.fs" />
-    <Compile Include="Schwoon.fs" />
-    <Compile Include="Solve.fs" />
+    <Compile Include="Serialise.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Parsing.fs" />
@@ -101,13 +100,21 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\Utils\Utils.fsproj">
-      <Project>{536F3FF2-DDA2-49EF-A797-A5D37AEE445A}</Project>
-      <Name>Utils</Name>
-    </ProjectReference>
     <Reference Include="FSharp.Core">
       <Private>True</Private>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\PUtils\PUtils.fsproj">
+      <Name>PUtils</Name>
+      <Project>{c7934639-c2b8-411a-8cd9-8a4e4ed70d15}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\RegSat\RegSatLib\RegSatLib.fsproj">
+      <Name>RegSatLib</Name>
+      <Project>{e02db811-f03d-40f5-90a9-bd927f4f1287}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
