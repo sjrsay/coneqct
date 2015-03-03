@@ -1,0 +1,17 @@
+IntVar = { val:int },
+J = { n:void->void },
+I = { m:J->int }
+
+----------------------------
+
+let x = new {_:IntVar;} in
+x.val := 1;
+new {_:I; 
+  m:\f. f.n(); x.val 
+}
+
+  =?=
+
+new {_:I;
+  m:\f. f.n(); 1
+}
