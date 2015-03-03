@@ -4,6 +4,25 @@ open IMJEquiv
 open Microsoft.FSharp.Text
 open System.Diagnostics
 
+type Result = 
+  | Equivalent
+  | Inequivalent
+
+  override x.ToString() =
+    match x with
+    | Equivalent -> "Contextually equivalent"
+    | Inequivalent -> "Distinguished by some context"
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Result =
+  
+  let combine (r1: Result) (r2: Result) : Result =
+    match r1, r2 with
+    | Inequivalent, _            -> Inequivalent
+    | _,            Inequivalent -> Inequivalent
+    | _,            _            -> Equivalent
+
+
 let outputFile = ref "auto.dot"
 let inputFile = ref ""
 let printC1 = ref false
@@ -73,14 +92,19 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   do timer.Restart ()
 
   let fpdra = FPDRA.fromProduct imj2
-  do printf "\tFPDRA: %d states, %d transitions (%dms).\n" fpdra.States.Length fpdra.Transitions.Length timer.ElapsedMilliseconds
+  let fpdrs, initial, finals = Serialise.fpdra fpdra
+  do printf "\tFPDRS: %d states, %d transitions, %d registers (%dms).\n" fpdrs.NumStates fpdrs.NumTrans fpdrs.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
 
-  let pda   = Explosion.fromFPDRA fpdra
-  do printf "\tPDA: %d states, %d transitions (%dms).\n" pda.States.Length pda.Trans.Length timer.ElapsedMilliseconds
+  let extInit = Serialise.initState fpdrs.NumRegs fpdra.Initial initial
+  let extFinals = [ for f in finals do yield! RegSat.ExtState.ofStateEG fpdrs.NumRegs f ]
+  let ra = { States = HashSet extFinals; Trans = HashMap (); NumRegs = fpdrs.NumRegs } : RegSat.RA
+  do RegSat.Sat.sat fpdrs ra
+  do printf "\tRA: %d states, %d transitions, %d registers (%dms).\n" ra.States.Count (RegSat.RA.numTrans ra) ra.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
-  
-  let result = Solve.schwoon pda
+
+  let b = RegSat.RA.reach [extInit] finals ra
+  let result = if b then Inequivalent else Equivalent
   do printf "\tResult: %A (%d ms).\n\n" result timer.ElapsedMilliseconds
   result
 
@@ -131,4 +155,5 @@ let main _ =
     let res = Seq.fold (fun r (mu, s) -> Result.combine r (solveFromInitPos d g c1' c2' mu s)) Equivalent inits
     let dur = totalTimer.ElapsedMilliseconds
     printf "Result: %A (%dms).\n\n" res dur
+    
     0

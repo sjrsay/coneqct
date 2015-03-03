@@ -61,7 +61,6 @@
     <Compile Include="AutomatonTests.fs" />
     <Compile Include="InitialTests.fs" />
     <Compile Include="FPDRSTests.fs" />
-    <Compile Include="SchwoonTests.fs" />
     <None Include="Quick.fsx" />
     <None Include="packages.config" />
     <Content Include="app.config" />
@@ -77,9 +76,10 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\..\Utils\Utils.fsproj">
-      <Name>Utils</Name>
-      <Project>{536F3FF2-DDA2-49EF-A797-A5D37AEE445A}</Project>
+    <ProjectReference Include="..\..\..\PUtils\PUtils.fsproj">
+      <Name>PUtils</Name>
+      <Project>{c7934639-c2b8-411a-8cd9-8a4e4ed70d15}</Project>
+      <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\..\IMJEquiv\IMJEquiv.fsproj">
       <Name>IMJEquiv</Name>
