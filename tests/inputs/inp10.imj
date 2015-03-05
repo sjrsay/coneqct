@@ -1,0 +1,44 @@
+
+IntVar = { val: int },
+J = { n: void -> void },
+I = { m1: J -> void, m2: void -> int }
+
+-----------------------------------------
+
+let b = new {_:IntVar;} in
+let x = new {_:IntVar;} in
+b.val := 1;
+x.val := 0;
+new {_:I;
+	
+	m1:\f. 
+	  if b.val then 
+	    b.val := 0; 
+	    f.n(); 
+	    x.val := x.val + 1;
+	    b.val := 1
+	  else
+	    skip,
+  
+  m2:\_. x.val
+}
+
+=?=
+
+let b = new {_:IntVar;} in
+let x = new {_:IntVar;} in
+b.val := 1;
+x.val := 0;
+new {_:I;
+
+	m1:\f. 
+	  if b.val then 
+	    b.val := 0; 
+	    let n = x.val in (f.n(); x.val := n + 1);
+	    b.val := 1
+	  else
+	    skip,
+
+	m2:\_. x.val
+
+}

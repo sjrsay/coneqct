@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 /// The type of terms, follows the grammar of the paper.
 [<StructuredFormatDisplayAttribute("{Show}")>]

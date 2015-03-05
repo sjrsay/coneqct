@@ -1,6 +1,5 @@
 ﻿%{
 
-open IMJEquiv
 open Microsoft.FSharp.Text.Parsing
 
 /// A `ParseError (s,l,c)` exception carries a message
@@ -49,8 +48,13 @@ let mkLet (x: Ident) (s: Term) (t: Term) : Term =
 %token <String> ID IID
 %token <Int32> NUM RID
 
+
 %nonassoc letterm
-%left PLUS COLON COMMA SEMICOLON STOP ASSN EQUALS
+%left SEMICOLON
+%left EQUALS
+%left ASSN 
+%left STOP
+%left PLUS 
 %nonassoc castterm
 %nonassoc ifterm
 %nonassoc doterm

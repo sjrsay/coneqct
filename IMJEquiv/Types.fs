@@ -1,15 +1,22 @@
 ﻿namespace IMJEquiv
 
+/// The basic identifiers that IMJ terms
+/// are built from are just strings.  It
+/// seems unlikely that instances will ever
+/// be so large as to make this an efficiency
+/// concern.
 type Ident = String
-
 type FldId = String
 type MethId = String
 type IntId = String
 
+/// Register identifiers (indexes)
 type RegId = Int32
 
+/// Type errors
 exception TypeError of String
 
+/// Types in IMJ
 [<StructuredFormatDisplayAttribute("{Show}")>]
 type Ty = 
   | Void
@@ -25,10 +32,14 @@ type Ty =
     | Int -> "int"
     | Iface i -> i
 
+/// The declared type of a method or field 
+/// in an interface.
 type IDfn =
   | IFld of Ty
   | IMth of List<Ty> * Ty
 
+/// An interface defines a mapping from method and field
+/// names to their declared types.
 type IDfnMap = Map<String, IDfn>
 
 /// The type `ITblDfn' describes the kinds of
@@ -40,14 +51,28 @@ type ITblDfn =
   | Eqn of IDfnMap
   | Ext of IntId * IDfnMap
 
+/// Interface table
 type ITbl = Map<IntId, ITblDfn>
 
+/// Type environment
 type TyEnv = List<Ident * Ty>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module TyEnv =
   
-  let lookup (x: Ident) (e: TyEnv) : Option<Ty> =
+  /// Given a variable x and a type environment [(x_0,ty_0);...;(x_n,ty_n)]
+  /// where there is some i such that x_i = x, returns i.
+  let index (x: Ident) (e: TyEnv) : Int32 =
+    List.findIndex (fun (y, _) -> x = y) e 
+
+  /// Given a variable x and a type environment [(x_0,ty_0);...;(x_n,ty_n)]
+  /// where there is some i such that x_i = x, returns ty_i.
+  let lookup (x: Ident) (e: TyEnv) : Ty =
+    snd (List.find (fun (y, _) -> x = y) e)
+
+  /// Given an ident x and a type environment [(x_0,ty_0);...;(x_n,ty_n)], 
+  /// returns Some ty_i when x_i = x and None otherwise.
+  let tryLookup (x: Ident) (e: TyEnv) : Option<Ty> =
     // We deliberately look from the back of the list because there may be
     // two occurrences of the same identifier with the intention that
     // the later one shadows the former one.
@@ -56,6 +81,9 @@ module TyEnv =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ITbl =
   
+  /// Given an interface table t and interface identifier i, returns 
+  /// all the methods m:(ty_1,..,ty_n) -> ty specified by i in t, 
+  /// as a list of triples (m, [ty_1,..,ty_n], ty).
   let rec methods (t: ITbl) (i: IntId) : List<MethId * List<Ty> * Ty> =
     match Map.tryFind i t with
     | None -> failwith "Did not find interface %O in table %O." i t
@@ -67,6 +95,9 @@ module ITbl =
         let ss = Map.fold (fun ss s dfn -> match dfn with IMth (tys,ty) -> (s,tys,ty)::ss | _ -> ss) [] m
         ext @ ss
 
+  /// Given an interface table t and interface identifier i, returns
+  /// all the fields f:ty specified by i in t, as a list of pairs
+  /// of the form (f, ty)
   let rec fields (t: ITbl) (i: IntId) : List<FldId * Ty> =
     match Map.tryFind i t with
     | None -> failwith "Did not find interface %O in table %O." i t
@@ -78,41 +109,8 @@ module ITbl =
         let ss = Map.fold (fun ss s dfn -> match dfn with IFld ty -> (s,ty)::ss | _ -> ss) [] m
         ext @ ss
 
-  let rec isG (d: ITbl) (t: Ty) : Bool =
-    match t with
-    | Int | Void -> true
-    | Iface i ->
-        let flds = fields d i
-        let mths = methods d i
-        List.isEmpty mths && List.forall (isG d << snd) flds
-
-  let rec isL (d: ITbl) (t: Ty) : Bool =
-    match t with
-    | Int | Void -> true
-    | Iface i -> 
-        let flds = fields d i
-        let mths = methods d i
-        let fldsAreG = List.forall (isG d << snd) flds
-        let isGtoL (_,tys,ty) =
-          List.forall (isG d) tys && isL d ty 
-        let mthsAreGtoL = List.forall isGtoL mths
-        fldsAreG && mthsAreGtoL
-
-  let rec isR (d: ITbl) (t: Ty) : Bool =
-    match t with
-    | Int | Void -> true
-    | Iface i ->
-        let flds = fields d i
-        let mths = methods d i
-        let fldsAreG = List.forall (isG d << snd) flds
-        let isLtoG (_,tys,ty) =
-          List.forall (isL d) tys && isG d ty 
-        let mthsAreLtoG = List.forall isLtoG mths
-        fldsAreG && mthsAreLtoG
-
-  let rec isB (d: ITbl) (t: Ty) : Bool =
-    isL d t && isR d t
-
+  /// Given an interface table d, returns true if d is well-formed
+  /// according to the rules banning recursive declarations of interfaces.
   let wellFormed (d: ITbl) : Unit =
 
     let rec wfTy (seen: Set<IntId>) (t: Ty) : Unit =
@@ -152,14 +150,17 @@ module ITbl =
 
     
 
-module Types =
-  
-  let getPosInTyEnv (x: Ident) (e: TyEnv) : Int32 =
-    List.findIndex (fun (y, _) -> x = y) e 
+module Type =
 
-  let getTyfromTyEnv (x: Ident) (e: TyEnv) : Ty =
-    snd (List.find (fun (y, _) -> x = y) e)
+  /// Given the type of an interface (Iface i), returns the interface i.
+  let toInterface (ty: Ty) : IntId =
+    match ty with
+    | Iface i -> i
+    | _ -> failwith "Expected an interface type."
 
+  /// Given an interface table d, an interface identifier i and the name f 
+  /// of a field f: ty belonging to that interface, returns the type ty of 
+  /// the field.
   let rec ofFld (d: ITbl) (i: IntId) (f: FldId) : Ty =
     let foo (m: IDfnMap) : Option<Ty> =
       match Map.tryFind f m with
@@ -173,6 +174,9 @@ module Types =
         | None -> ofFld d j f
         | Some ty -> ty
 
+  /// Given an interface table d, an interface identifier i and the name mth 
+  /// of a method mth:(ty_1,...,ty_n) -> ty belonging to that interface, 
+  /// returns the type of the method as a pair ([ty_1;..;ty_n],ty).
   let rec ofMeth (d: ITbl) (i: IntId) (mth: MethId) : (List<Ty> * Ty) =
     let foo (m: IDfnMap) : Option< (List<Ty>*Ty) > =
       match Map.tryFind mth m with
@@ -185,6 +189,49 @@ module Types =
         match foo m with
         | None -> ofMeth d j mth
         | Some x -> x
+
+  /// Given an interface table d and a type t, returns true if t is
+  /// ground (from the G fragment) and false otherwise.
+  let rec isG (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i ->
+        let flds = ITbl.fields d i
+        let mths = ITbl.methods d i
+        List.isEmpty mths && List.forall (isG d << snd) flds
+
+  /// Given an interface table d and a type t, returns true if t is
+  /// from the L fragment and false otherwise.
+  let rec isL (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i -> 
+        let flds = ITbl.fields d i
+        let mths = ITbl.methods d i
+        let fldsAreG = List.forall (isG d << snd) flds
+        let isGtoL (_,tys,ty) =
+          List.forall (isG d) tys && isL d ty 
+        let mthsAreGtoL = List.forall isGtoL mths
+        fldsAreG && mthsAreGtoL
+
+  /// Given an interface table d and a type t, returns true if t is
+  /// from the R fragment and false otherwise.
+  let rec isR (d: ITbl) (t: Ty) : Bool =
+    match t with
+    | Int | Void -> true
+    | Iface i ->
+        let flds = ITbl.fields d i
+        let mths = ITbl.methods d i
+        let fldsAreG = List.forall (isG d << snd) flds
+        let isLtoG (_,tys,ty) =
+          List.forall (isL d) tys && isG d ty 
+        let mthsAreLtoG = List.forall isLtoG mths
+        fldsAreG && mthsAreLtoG
+
+  /// Given an interface table d and a type t, returns true if t is
+  /// from the B fragment and false otherwise.
+  let rec isB (d: ITbl) (t: Ty) : Bool =
+    isL d t && isR d t
 
   /// Given an interface table `d` and two interface idents `i`
   /// and `j`, `subtype d i j` is `true` just if `i` is a subtype

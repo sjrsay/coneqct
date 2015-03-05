@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 type Store =
   Map<RegId, IntId * Map<FldId, Val>>
@@ -28,7 +27,7 @@ module Store =
     let getInnerVals i acc f v =
       match v with
       | VReg r -> 
-          let (Iface j) = Types.ofFld d i f
+          let j = Type.toInterface (Type.ofFld d i f)
           Set.add (r, j) acc
       | _     -> acc
     let getOuterVals acc r (i,m) =

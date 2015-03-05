@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 type Span = 
   {
@@ -220,7 +219,10 @@ module FPDRA =
       | P -> 
           match xs with
           | [] -> 
-              let (Sim (q1, q2)) = q.State
+              let q1, q2 =
+                match q.State with
+                | Sim (q1,q2) -> (q1,q2)
+                | _ -> failwith "Expected Sim state."
               let xs1 = Map.codomain q.Span.Left
               let xs2 = Map.codomain q.Span.Right
               let q1' = { q with State = Div1 q1; Store = Map.restrict q.Store xs1; Span = { q.Span with Right = Map.empty } }

@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 [<StructuredFormatDisplayAttribute("{Show}")>]
 type Canon =
@@ -265,7 +264,7 @@ module Canonical =
             let y = newVar ()
             let z = newVar ()
             let xTy =
-              match TyEnv.lookup x e with
+              match TyEnv.tryLookup x e with
               | None    -> failwithf "Free variable %A in %A not given a type" x t
               | Some ty -> ty
             Let (y, NullL xTy, Let (z, Eq (x, y), Var z))
@@ -309,7 +308,7 @@ module Canonical =
         match cm with
         | NullR _ -> div
         | NewR (oi, t, r, ms) ->
-            let fty = Types.ofFld d r f
+            let fty = Type.ofFld d r f
             let dval = Val.defaultOfTy fty
             match dval with
             | VNul   -> Canon.NullR
@@ -364,7 +363,7 @@ module Canonical =
         | NewR (oi, t, r, ms) ->
             match oi with
             | None -> NewR (Some i, t, r, ms)
-            | Some i' when Types.subtype d i' i -> 
+            | Some i' when Type.subtype d i' i -> 
                 NewR (Some i, t, r, ms)
             | _ -> div
     | Term.LetCast (x, i, y, m) ->
@@ -394,7 +393,7 @@ module Canonical =
         total
     | Term.New (t, r, ms) ->
         let canMeth (m: MethSpec) : CanMeth =
-          let argTys, _ = Types.ofMeth d r m.Name
+          let argTys, _ = Type.ofMeth d r m.Name
           let argTypings = List.zip m.Vars argTys
           let e' = e @ argTypings
           { Name = m.Name; Vars = m.Vars; Body = canonise d e' m.Body } 

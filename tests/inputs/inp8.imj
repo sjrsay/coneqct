@@ -1,3 +1,10 @@
+/* 
+  Equivalent terms adapted for IMJ from an example of 
+  Dreyer, Neis and Birkedal's "The Impact of Higher-Order
+  State and Control Effects on Local Relational Reasoning"
+  page 3.
+*/
+
 IntVar = { val:int },
 J = { n:void->void },
 I = { m:J->int }

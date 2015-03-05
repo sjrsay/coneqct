@@ -26,7 +26,7 @@
     <DocumentationFile>..\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug</StartWorkingDirectory>
-    <StartArguments>..\tests\inputs\inp1.imj</StartArguments>
+    <StartArguments>..\tests\inputs\inp10b.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -85,7 +85,6 @@
     <Compile Include="Lexer.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="Program.fs" />
-    <None Include="Testing.fsx" />
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>

@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 [<StructuredFormatDisplayAttribute("{Show}")>]
 type Val =
@@ -20,7 +19,10 @@ type Val =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Val =
 
-  let mutable maxint = 2
+  let mutable maxint = 1
+
+  let add (i:Int) (j:Int) : Int =
+    min (i+j) maxint
 
   let supp (v: Val) : Set<RegId> =
     match v with

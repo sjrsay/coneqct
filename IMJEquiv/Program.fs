@@ -1,5 +1,4 @@
 ﻿module IMJEquiv.Program
-open IMJEquiv
 
 open Microsoft.FSharp.Text
 open System.Diagnostics

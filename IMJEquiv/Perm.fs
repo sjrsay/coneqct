@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 type Perm<'a> when 'a : comparison = Map<'a,'a>
 

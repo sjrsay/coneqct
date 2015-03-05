@@ -1,3 +1,11 @@
+/* 
+  Equivalent terms adapted for IMJ from the variant of
+  Pitts and Stark's awkward example presented by Dreyer, 
+  Neis and Birkedal in "The Impact of Higher-Order State
+  and Control Effects on Local Relational Reasoning" page 5.
+  This is an inequivalence with call/cc.
+*/
+
 IntVar = { val:int },
 J = { n:void->void },
 I = { m:J->int }
