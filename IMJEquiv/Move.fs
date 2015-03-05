@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 
 [<StructuredFormatDisplay("{Show}")>]
 type Move = 
@@ -26,6 +25,18 @@ module Move =
     | Ret (r,mth,v) ->
         Set.add r (Val.supp v)
 
+
+  /// Given an integer move (ValM (VNum i)), returns i.
+  let toInt (m: Move) : Int =
+    match m with 
+    | ValM (VNum i) -> i
+    | _ -> failwith "Expected an integer move."
+
+  /// Given a register move (ValM (VReg r)), returns r.
+  let toRegister (m: Move) : RegId =
+    match m with
+    | ValM (VReg r) -> r
+    | _ -> failwith "Expected a register move."
 
   let listToString (ms: List<Move>) : String =
     match ms with

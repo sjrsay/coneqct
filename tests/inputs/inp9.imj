@@ -1,0 +1,23 @@
+/* 
+  Equivalent terms adapted for IMJ from Pitts and Stark's
+  awkward example from "Operational Reasoning with Local
+  State", page 41.
+*/
+
+IntVar = { val: int },
+J = { n: void -> void    },
+I = { m: J -> int }
+
+----------------------------
+
+let c = new {_:IntVar;} in
+c.val := 0;
+new {_:I; 
+  m:\f. c.val := 1; f.n(); c.val 
+}
+
+  =?=
+
+new {_:I;
+  m:\f. f.n(); 1
+}

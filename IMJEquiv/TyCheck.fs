@@ -1,5 +1,4 @@
 ﻿module IMJEquiv.TyCheck
-open IMJEquiv
 
 // Types extended by type variables
 // for the purposes of unification.
@@ -135,27 +134,27 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
     | Assn (m,f,n) -> 
         let mTy = infer d g m
         let mI  = getIface mTy
-        let fTy = Types.ofFld d mI f
+        let fTy = Type.ofFld d mI f
         check d g n (fromTy fTy)
         Void
     | Fld (m,f) ->
         let mTy = infer d g m
         let mI  = getIface mTy
-        fromTy (Types.ofFld d mI f)
+        fromTy (Type.ofFld d mI f)
     | VFld (x,f) ->
         let xTy = varLkup x
         let xI  = getIface xTy
-        fromTy (Types.ofFld d xI f)
+        fromTy (Type.ofFld d xI f)
     | Call (m,mth,ns) ->
         let mTy = infer d g m
         let mI  = getIface mTy
-        let argTys, resTy = Types.ofMeth d mI mth
+        let argTys, resTy = Type.ofMeth d mI mth
         do List.iter2 (fun n a -> check d g n (fromTy a)) ns argTys
         fromTy resTy
     | Cast (j,m) ->
         let mTy = infer d g m
         let mI  = getIface mTy
-        if Types.subtype d mI j || Types.subtype d j mI then
+        if Type.subtype d mI j || Type.subtype d j mI then
           Obj j
         else
           raise (TypeError (sprintf "Invalid cast %O" t))
@@ -166,7 +165,7 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
     | LetCast (x,j,y,m) ->
         let yTy = varLkup y
         let yI  = getIface yTy
-        if Types.subtype d yI j || Types.subtype d j yI then
+        if Type.subtype d yI j || Type.subtype d j yI then
           let g' = g @ [x, Obj j]
           infer d g' m
         else
@@ -175,7 +174,7 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
         let yTy = varLkup y
         let argTys,resTy =
           let i = getIface yTy 
-          Types.ofMeth d i mth
+          Type.ofMeth d i mth
         do List.iter2 (check d g) ns (List.map fromTy argTys)
         let g' = g @ [x, (fromTy resTy)]
         infer d g' n
@@ -194,7 +193,7 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
         Obj i
     | Null -> NullTy (newTyVar ())
   try unify ety ty with
-  | UnifyError -> raise (TypeError (sprintf "Could not unify types %O and %O for %O." (zonk ety) (zonk ty) t))
+  | UnifyError -> raise (TypeError (sprintf "Could not unify Type %O and %O for %O." (zonk ety) (zonk ty) t))
 
 and private checkMth (d: ITbl) (g: ETyEnv) (i: IntId) (aTys: List<ETy>, rTy: ETy) (s: MethSpec) : Unit =
   let g' = g @ List.map2 (fun x y -> (x,y)) s.Vars aTys
@@ -212,8 +211,8 @@ let inferETy (d: ITbl) (g: TyEnv) (t: Term) : ETy =
 let rec checkFragment (d: ITbl) (g: TyEnv) (t: Term) : Unit =
   match t with
   | BVar x -> 
-      let (Some ty) = TyEnv.lookup x g
-      if not (ITbl.isB d ty) then raise (TypeError (sprintf "Variable %O has type %O not in the B fragment." t ty))
+      let ty = TyEnv.lookup x g
+      if not (Type.isB d ty) then raise (TypeError (sprintf "Variable %O has type %O not in the B fragment." t ty))
   | Num _ -> ()
   | Skip -> ()
   | Plus (m,n) ->
@@ -223,10 +222,10 @@ let rec checkFragment (d: ITbl) (g: TyEnv) (t: Term) : Unit =
       do checkFragment d g m
       do checkFragment d g n
   | VEq (x,y) ->
-      let (Some tyx) = TyEnv.lookup x g
-      let (Some tyy) = TyEnv.lookup y g
-      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
-      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+      let tyx = TyEnv.lookup x g
+      let tyy = TyEnv.lookup y g
+      if not (Type.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (Type.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
   | Seq (m,n) ->
       do checkFragment d g m
       do checkFragment d g n
@@ -240,38 +239,38 @@ let rec checkFragment (d: ITbl) (g: TyEnv) (t: Term) : Unit =
   | Fld (m,f) ->
       do checkFragment d g m
   | VFld (x,f) ->
-      let (Some tyx) = TyEnv.lookup x g
-      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      let tyx = TyEnv.lookup x g
+      if not (Type.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
   | Call (m,mth,ns) ->
       do checkFragment d g m
       do List.iter (checkFragment d g) ns
   | Cast (j,m) ->
       do checkFragment d g m
   | Let (x,m,n) ->
-      let (Some tyx) = TyEnv.lookup x g
+      let tyx = TyEnv.lookup x g
       do checkFragment d g m
       do checkFragment d g n
-      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (Type.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
   | LetCast (x,j,y,m) ->
-      let (Some tyx) = TyEnv.lookup x g
-      let (Some tyy) = TyEnv.lookup y g
-      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
-      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+      let tyx = TyEnv.lookup x g
+      let tyy = TyEnv.lookup y g
+      if not (Type.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (Type.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
       do checkFragment d g m
   | LetCl (x,y,mth,ns,n) ->
-      let (Some tyx) = TyEnv.lookup x g
-      let (Some tyy) = TyEnv.lookup y g
-      if not (ITbl.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
-      if not (ITbl.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
+      let tyx = TyEnv.lookup x g
+      let tyy = TyEnv.lookup y g
+      if not (Type.isL d tyx) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." x tyx))
+      if not (Type.isL d tyy) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." y tyy))
       do List.iter (checkFragment d g) ns
       do checkFragment d g n
   | While (m,n) ->
       do checkFragment d g m
       do checkFragment d g n
   | New (z,i,ms) ->
-      if not (ITbl.isL d (Iface i)) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." z i))
+      if not (Type.isL d (Iface i)) then raise (TypeError (sprintf "Variable %s has type %O not in the L fragment." z i))
       let checkMeth (m: MethSpec) =
-        let tys, ty = Types.ofMeth d i m.Name
+        let tys, ty = Type.ofMeth d i m.Name
         let g' = g @ List.zip m.Vars tys
         checkFragment d g' m.Body
       do List.iter checkMeth ms

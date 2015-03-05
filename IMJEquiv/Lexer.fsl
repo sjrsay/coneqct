@@ -1,7 +1,6 @@
 ﻿{
 
 module IMJEquiv.Lexer
-open IMJEquiv
 
 open Parser
 open System

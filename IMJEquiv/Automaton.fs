@@ -1,5 +1,4 @@
 ﻿namespace IMJEquiv
-open IMJEquiv
 open System
 
 type State =
@@ -98,37 +97,44 @@ module Automaton =
   /// Given an automaton `a`, `prune a` is the sub-automaton of
   /// `a` consisting only of reachable structure
   let prune (a: Automaton) : Automaton =
-    // Implemented with a hashset due to efficiency problem
-    let rqs = HashSet ()
-    let addSuccs (acc: List<State>) (q: State) = 
-      let addNew (acc: List<State>) (t: Transition) : List<State> =
-        if getFstState t = q then
-          let q' = getSndState t
-          if not (rqs.Contains q') then (ignore (rqs.Add q'); q'::acc) else acc
-        else
-          acc
-      List.fold addNew acc a.TransRel
-    // List `frontier` is always a subset of rqs
-    let rec reachable (frontier : List<State>) : Unit =
-      match frontier with
-      | [] -> ()
-      | _::_ ->
-          let frontier' = List.fold addSuccs [] frontier
-          reachable frontier'
 
-    let _ = rqs.Add a.InitS
-    let _ = reachable [a.InitS]
-    let rts = List.filter (fun t -> rqs.Contains (getFstState t)) a.TransRel
-    let rfs = List.filter (fun q -> rqs.Contains q) a.Final
-    let row = Map.restrict a.Owner (Set.ofSeq rqs)
-    let rrk = Map.restrict a.Rank (Set.ofSeq rqs)
+    // List `frontier` is always a subset of rqs
+    let rec reach (fst, snd) (pot: HashSet<State>) (fr: List<State>) : Unit =
+      let rec fix fr = 
+        if fr <> [] then
+          let fr' = [
+            for q in fr do
+              for t in a.TransRel do
+                let q1 = fst t
+                let q2 = snd t
+                if q1 = q && pot.Add q2 then yield q2
+          ]
+          fix fr'
+      fix fr
+
+    let fwdSeen  = HashSet [a.InitS]
+    let fwdReach = reach (getFstState,getSndState) fwdSeen
+    do ignore (fwdReach [a.InitS])
+
+    let bwdSeen  = HashSet a.Final
+    let bwdReach = reach (getSndState,getFstState) bwdSeen
+    do ignore (bwdReach a.Final)
+
+    // fwdSeen now contains all the live states
+    do fwdSeen.IntersectWith bwdSeen
+
+    let rts = List.filter (fun t -> fwdSeen.Contains (getFstState t) && fwdSeen.Contains (getSndState t)) a.TransRel
+    let rfs = List.filter (fun q -> fwdSeen.Contains q) a.Final
+    let liveSet = Set.ofSeq fwdSeen // To comply with Map.restrict's API
+    let row = Map.restrict a.Owner liveSet
+    let rrk = Map.restrict a.Rank liveSet
     {
       Automaton.Final    = rfs
       Automaton.InitR    = a.InitR
       Automaton.InitS    = a.InitS
       Automaton.Owner    = row
       Automaton.Rank     = rrk
-      Automaton.States   = List.ofSeq rqs
+      Automaton.States   = List.ofSeq fwdSeen
       Automaton.TransRel = rts
     }
 
@@ -270,12 +276,14 @@ module Automaton =
       match q with
       | :? IntState as p -> "q" + p.Val.ToString ()
       | :? PairState as p -> printState p.State + printStore p.Store 
+      | _ -> impossible ()
     let printStateDecl (q: State) : String =
       let shape = if List.contains q a.Final then "doublecircle" else "circle"
       let rec printLabel (q: State) = 
         match q with
         | :? IntState as p -> "q" + p.Val.ToString ()
         | :? PairState as p -> "(" + printLabel p.State + ", " + printStore p.Store + ")"
+        | _ -> impossible ()
       let qstr = printLabel q
       sprintf "%s [label=\"%s[%s]\",shape=%s]" (printState q) qstr (printStore a.Rank.[q]) shape
     let printStateDecls () : String =
@@ -647,19 +655,19 @@ module Automaton =
       match cn with
       | NullR -> twoStateAuto (ValM VNul, s) s s
       | Var x -> 
-          let k = Types.getPosInTyEnv x g
+          let k = TyEnv.index x g
           twoStateAuto (mu.[k], s) s s
       | If (x, c1, c0) ->
-          let k = Types.getPosInTyEnv x g
+          let k = TyEnv.index x g
           if mu.[k] = ValM (VNum 0) then
             fromCanon d g c0 mu s 
           else
             fromCanon d g c1 mu s
       | Let (z, Assn (x,f,y), c) ->
           let rk', v = 
-            match mu.[Types.getPosInTyEnv x g] with
+            match mu.[TyEnv.index x g] with
             | ValM (VReg rk') -> 
-                match mu.[Types.getPosInTyEnv y g] with
+                match mu.[TyEnv.index y g] with
                 | ValM v -> rk', v
                 | _ -> failwith "Expected assignment value to be a value."
             | _ -> failwith "Expected assignment variable to be a register."
@@ -698,27 +706,27 @@ module Automaton =
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (x, Plus (y,z), c) ->
-          let (ValM (VNum yval)) = mu.[Types.getPosInTyEnv y g]
-          let (ValM (VNum zval)) = mu.[Types.getPosInTyEnv z g]
-          let mu' = List.append mu  [ValM (VNum (yval + zval))]
+          let yval = Move.toInt (mu.[TyEnv.index y g])
+          let zval = Move.toInt (mu.[TyEnv.index z g])
+          let mu' = List.append mu  [ValM (VNum (Val.add yval zval))]
           let g' = List.append g [(x, Int)]
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (y, Eq (x1, x2), c) -> 
           let cmp = 
-            match mu.[Types.getPosInTyEnv x1 g], mu.[Types.getPosInTyEnv x2 g] with
+            match mu.[TyEnv.index x1 g], mu.[TyEnv.index x2 g] with
             | ValM (VNum i), ValM (VNum j) -> if i = j then 1 else 0
             | ValM (VReg x1val), ValM (VReg x2val) -> if x1val = x2val then 1 else 0
             | ValM VNul, ValM VNul -> 1
             | _, _ -> 0
-          let mu' = List.append mu  [ValM (VNum cmp)]
-          let g' = List.append g [(y, Int)]
+          let mu' = List.append mu [ValM (VNum cmp)]
+          let g'  = List.append g [(y, Int)]
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (y, Cast (i, x), c) ->
-           let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv x g]
+           let rk' = Move.toRegister (mu.[TyEnv.index x g])
            let j, _ = s.[rk']
-           if Types.subtype d j i then 
+           if Type.subtype d j i then 
              let mu' = List.append mu [ValM (VReg rk')]
              fromCanon d g c mu' s
            else
@@ -735,21 +743,21 @@ module Automaton =
                Rank = rank
              }
        | Let (y, Fld (x,f), c) -> 
-          let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv x g]
+          let rk' = Move.toRegister (mu.[TyEnv.index x g])
           let (i,m) = s.[rk']
           let v  = m.[f]
-          let ty = Types.ofFld d i f 
+          let ty = Type.ofFld d i f 
           let mu' = List.append mu  [ValM v]
           let g' = List.append g [(y, ty)]
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (x, CanLet.Call (y,m,zs), c) ->
-          let (Iface yi) = Types.getTyfromTyEnv y g
-          let (_, xty) = Types.ofMeth d yi m
-          match mu.[Types.getPosInTyEnv y g] with
+          let yi = Type.toInterface (TyEnv.lookup y g)
+          let (_, xty) = Type.ofMeth d yi m
+          match mu.[TyEnv.index y g] with
           | ValM (VReg rj) ->
               let mapper z : Val =
-                match mu.[Types.getPosInTyEnv z g] with
+                match mu.[TyEnv.index z g] with
                   | ValM v -> v
                   | _ -> failwith "Expected a value move."
               let vs = List.map mapper zs
@@ -871,7 +879,7 @@ module Automaton =
                     }
           | _ -> empty s
        | Let (z, While (r, c1), c2) -> 
-           let (ValM (VReg rk')) = mu.[Types.getPosInTyEnv r g]
+           let rk' = Move.toRegister (mu.[TyEnv.index r g])
            if (snd s.[rk']).["_val"] = VNum 0 then
              fromCanon d g c2 mu s
            else
@@ -941,7 +949,7 @@ module Automaton =
              }
        | NewR (oi',x,i,mths) ->
            match oi' with
-           | Some i' when not (Types.subtype d i i') ->
+           | Some i' when not (Type.subtype d i i') ->
                empty s
            | _ ->
                let rk = Store.nextReg x0

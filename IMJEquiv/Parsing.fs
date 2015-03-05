@@ -1,5 +1,4 @@
 ﻿module IMJEquiv.Parsing
-open IMJEquiv
 
 open Microsoft.FSharp.Text.Lexing
 open Microsoft.FSharp.Text.Parsing

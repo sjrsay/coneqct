@@ -1,0 +1,23 @@
+/* 
+  Inequivalent terms as a variation of inp9.imj.
+  Here we remove the setting of c.val to 1 in the
+  m method of the first term.
+*/
+
+IntVar = { val: int },
+J = { n: void -> void    },
+I = { m: J -> int }
+
+----------------------------
+
+let c = new {_:IntVar;} in
+c.val := 0;
+new {_:I; 
+  m:\f. f.n(); c.val 
+}
+
+  =?=
+
+new {_:I;
+  m:\f. f.n(); 1
+}
