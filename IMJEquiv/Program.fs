@@ -60,11 +60,22 @@ let specs = [
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 
 // Command line usage string
-let usageText = "Please specify input file and command line options."
+let usageText = @"
+    Usage: 
+       IMJEquiv.exe [OPTIONS] <input>
+
+       Given the name <input> of a file containing a description of 
+       an instance of the equivalence problem for two IMJ terms
+       belonging to the cut fragment, IMJEquiv decides the instance.
+  
+    Options:"
 
 // Parse command line options
 let _ = ArgParser.Parse(compiledSpecs, getInputFile, usageText)
 
+let exitWithUsage () =
+  do ArgParser.Usage(compiledSpecs,usageText)
+  exit 1
 
 /// Given an interface table `d`, a type environment `g`, two canonical forms `c1` and `c2 such that 
 /// `d g |- c1 : t` and `d g |- c2 : t` for some type `t` and an initial position `(mu, s)` consistent
@@ -117,7 +128,7 @@ let main _ =
 
     do printf "\n\t\t\tContextual Equivalence Checker \n\t\t\t\t     for \n\t\t\t  Interface Middleweight Java\n\n"
 
-    if !inputFile = "" then exitWith (sprintf "No input file specified.")
+    if !inputFile = "" then exitWithUsage ()
     let d, g, tm1, tm2 = 
       try Parsing.input !inputFile with
       | Parser.ParseError (s,l,c) -> exitWith (sprintf "Parse Error %d:%d: %s." l c s)
