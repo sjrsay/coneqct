@@ -95,7 +95,7 @@ module Automaton =
 
 
   /// Given an automaton `a`, `prune a` is the sub-automaton of
-  /// `a` consisting only of reachable structure
+  /// `a` consisting only of reachable structure.
   let prune (a: Automaton) : Automaton =
 
     // List `frontier` is always a subset of rqs
@@ -276,14 +276,14 @@ module Automaton =
       match q with
       | :? IntState as p -> "q" + p.Val.ToString ()
       | :? PairState as p -> printState p.State + printStore p.Store 
-      | _ -> impossible ()
+      | _ -> failwith "Impossible"
     let printStateDecl (q: State) : String =
       let shape = if List.contains q a.Final then "doublecircle" else "circle"
       let rec printLabel (q: State) = 
         match q with
         | :? IntState as p -> "q" + p.Val.ToString ()
         | :? PairState as p -> "(" + printLabel p.State + ", " + printStore p.Store + ")"
-        | _ -> impossible ()
+        | _ -> failwith "Impossible"
       let qstr = printLabel q
       sprintf "%s [label=\"%s[%s]\",shape=%s]" (printState q) qstr (printStore a.Rank.[q]) shape
     let printStateDecls () : String =
