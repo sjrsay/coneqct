@@ -71,6 +71,13 @@
             let pushTrans1 = serie mid1 (fun i -> Push (c1',i)) (Set.toList ys1) mid2
             let pushTrans2 = serie mid2 (fun i -> Push (c2',i)) (Set.toList ys2) q2'
             yield! freTrans @ pushTrans1 @ pushTrans2
+        | TLabel.Push1 (xs, (c1,ys1)) ->
+            let fre  = if q1.Owner = P then GFresh else LFresh
+            let mid1 = newState ()
+            let c1'  = tag c1
+            let freTrans   = serie q1' fre (Set.toList xs) mid1
+            let pushTrans1 = serie mid1 (fun i -> Push (c1',i)) (Set.toList ys1) q2'
+            yield! freTrans @ pushTrans1
         | TLabel.Pop (xs, (c1,ys1), (c2,ys2)) ->
             let fre  = if q1.Owner = P then GFresh else LFresh
             let mid1 = newState ()
@@ -81,6 +88,16 @@
             let popTrans1 = serie mid1 (fun i -> Pop (c2',i)) (List.rev (Set.toList ys2)) mid2
             let popTrans2 = serie mid2 (fun i -> Pop (c1',i)) (List.rev (Set.toList ys1)) q2'
             yield! freTrans @ popTrans1 @ popTrans2
+        | TLabel.Pop1 (xs, (c1,ys1)) ->
+            let fre  = if q1.Owner = P then GFresh else LFresh
+            let mid1 = newState ()
+            let c1'  = tag c1
+            let freTrans   = serie q1' fre (Set.toList xs) mid1
+            let popTrans2 = serie mid1 (fun i -> Pop (c1',i)) (List.rev (Set.toList ys1)) q2'
+            yield! freTrans @ popTrans2
+        | TLabel.PopFre c ->
+            let c' = tag c
+            yield { Start=q1'; Op=PopFresh c'; End=q2' }
         | TLabel.Eps -> yield { Start=q1'; Op=Eps; End=q2' }
     ]
 

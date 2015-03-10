@@ -44,7 +44,10 @@ type TLabel =
   | Cut of Set<RegId>
   | Noop of Set<RegId>
   | Push of Set<RegId> * PushData * PushData
+  | Push1 of Set<RegId> * PushData
   | Pop of Set<RegId> * PopData * PopData
+  | Pop1 of Set<RegId> * PushData
+  | PopFre of StackConst
   | Eps 
 
   override x.ToString() =
@@ -197,7 +200,7 @@ module FPDRA =
   /// state `q2` in the product: `transFromTrans n q t pl` is the list of all
   /// pairs `(t', q')` in which `t'` is the FPDRS equivalent transition to `t` that 
   /// reaches FPDRS state `q'`.  
-  let transFromTrans (n: Int) (q: SpanState) ((q1,tl,q2): Transition2) (pl: Player) : List<Trans * SpanState> =
+  let transFromTrans (n: Int) (lTags, rTags) (q: SpanState) ((q1,tl,q2): Transition2) (pl: Player) : List<Trans * SpanState> =
     let collectGoodSpans l1 l2 acc sp =
       match isGoodSpan q.Owner q.Store l1 l2 sp with
       | None -> acc
@@ -232,7 +235,7 @@ module FPDRA =
               [ (t1, q1'); (t2, q2') ]
           | _::_ -> xs
 
-    let divTrans tl mkSpan pi  =
+    let divTrans tags tl mkSpan pi  =
       match tl with
       | TransLabel.Noop (xs, l) ->
           let xs' = Set.toList xs
@@ -259,7 +262,7 @@ module FPDRA =
               let q' = { State = q2; Span = sp'; Store = st; Owner = pl }
               let x = fresh sp'
               let y' = Set.map (fun x -> (pi q.Span).[x]) y
-              yield ((q, Push (x, (p,y'), (p,Set.empty)), q'), q')
+              yield ((q, Push1 (x, (p,y')), q'), q')
           ]
       | TransLabel.Pop (xs, l, p, y, z) ->
           let xs' = Set.toList xs
@@ -272,15 +275,25 @@ module FPDRA =
                 let freeRange = Set.map (fun r -> m.[r]) free
                 yield! newHalfSpans m xs' (Set.empty,Set.difference avail freeRange)
             ]
-          [
+          let divPops = [
             for sp in freshSpans do
               let st = importStore sp (snd l)
               let sp' = mkSpan sp
               let q' = { State = q2; Span = sp'; Store = st; Owner = pl }
               let fr = fresh sp'
               let y' = Set.map (fun r -> (pi sp').[r]) y
-              yield ((q, Pop (fr, (p,y), (p,Set.empty)), q'), q')
+              yield ((q, Pop1 (fr, (p,y')), q'), q')
           ]
+          let extraPops = [
+            for t in tags do
+              for i in [1..n] do
+                yield ((q, Pop1 (Set.empty, (t,Set.singleton i)), q), q)
+          ]
+          let morePops = [
+            for t in tags do
+              yield ((q, PopFre t, q), q)
+          ]
+          morePops @ extraPops @ divPops
 
     match tl with
     | Move12 (tl1,tl2) ->
@@ -327,8 +340,8 @@ module FPDRA =
             divergeIfNecessary tl1 tl2 newTrans
         | _, _ -> divergeIfNecessary tl1 tl2 []
 
-    | Move1 tl -> divTrans tl (fun sp -> { Left = sp; Right = Map.empty }) (fun sp -> sp.Left)
-    | Move2 tl -> divTrans tl (fun sp -> { Left = Map.empty; Right = sp }) (fun sp -> sp.Right)
+    | Move1 tl -> divTrans rTags tl (fun sp -> { Left = sp; Right = Map.empty }) (fun sp -> sp.Left)
+    | Move2 tl -> divTrans lTags tl (fun sp -> { Left = Map.empty; Right = sp }) (fun sp -> sp.Right)
 
     | Set1 x
     | Set1Id x ->
@@ -375,6 +388,14 @@ module FPDRA =
 
   let fromProduct (a: Automaton2) : FPDRA =
     
+    let lTags, rTags = 
+      let getTags (lTags, rTags) (_,t: TLabel2,_) =
+        match t with
+        | Move1 (TransLabel.Push(_,_,sc,_)) -> (Set.add sc lTags, rTags)
+        | Move2 (TransLabel.Push(_,_,sc,_)) -> (lTags, Set.add sc rTags)
+        | _ -> (lTags, rTags)
+      List.fold getTags (Set.empty,Set.empty) a.Trans
+
     let trans = HashSet ()
     let states = HashSet ()
 
@@ -384,7 +405,7 @@ module FPDRA =
             for q in fr do
               for _,_,q2 as t in Product.transFromState a q.State do
                 let pl = a.Owner q2
-                let news = transFromTrans a.NumRegs q t pl
+                let news = transFromTrans a.NumRegs (lTags,rTags) q t pl
                 for t',q' in news do
                   let _ = trans.Add t'
                   let notSeen = states.Add q'
