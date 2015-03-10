@@ -57,7 +57,10 @@ type TLabel =
     | Cut xs -> "Cut " + showSet xs
     | Noop xs -> "nu " + showSet xs
     | Push (xs, (p1,ys1), (p2,ys2)) -> sprintf "nu %s. Push (%O,%s) (%O,%s)" (showSet xs) p1 (showSet ys1) p2 (showSet ys2)
+    | Push1 (xs, (p1,ys1)) -> sprintf "nu %s. Push (%O,%s)" (showSet xs) p1 (showSet ys1)
     | Pop  (xs, (p1,ys1), (p2,ys2)) -> sprintf "nu %s. Pop (%O,%s) (%O,%s)" (showSet xs) p1 (showSet ys1) p2 (showSet ys2) 
+    | Pop1 (xs, (p1,ys1)) -> sprintf "nu %s. Pop (%O,%s)" (showSet xs) p1 (showSet ys1)
+    | PopFre p -> sprintf "Pop*(%O)" p
     | Eps -> "eps"
 
 type Trans = SpanState * TLabel * SpanState

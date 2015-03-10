@@ -79,7 +79,6 @@
     <Compile Include="Automaton.fs" />
     <Compile Include="Product.fs" />
     <Compile Include="FPDRA.fs" />
-    <Compile Include="Explosion.fs" />
     <Compile Include="Serialise.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
@@ -89,6 +88,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core, Version=4.3.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
     <Reference Include="FSharp.PowerPack">
       <HintPath>..\packages\FSPowerPack.Core.Community.3.0.0.0\Lib\Net40\FSharp.PowerPack.dll</HintPath>
     </Reference>
@@ -99,9 +99,6 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
-    <Reference Include="FSharp.Core">
-      <Private>True</Private>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\PUtils\PUtils.fsproj">
