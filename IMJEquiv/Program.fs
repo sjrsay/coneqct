@@ -50,11 +50,11 @@ let getInputFile (s:String) : Unit =
 
 // Command line options
 let specs = [
-    "-maxint", ArgType.Int (fun n -> Val.maxint <- n), "Set the value of the largest integer."
-    "-pc1",    ArgType.Set printC1,                    "Write canonical form of term 1 to the terminal."
-    "-pc2",    ArgType.Set printC2,                    "Write canonical form of term 2 to the terminal."
-    "-pa1",    ArgType.Set printA1,                    "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
-    "-pa2",    ArgType.Set printA2,                    "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
+    "-maxint", ArgType.Int (fun n -> Val.maxint <- max Val.maxint n), "Set the value of the largest integer."
+    "-pc1",    ArgType.Set printC1,                                   "Write canonical form of term 1 to the terminal."
+    "-pc2",    ArgType.Set printC2,                                   "Write canonical form of term 2 to the terminal."
+    "-pa1",    ArgType.Set printA1,                                   "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
+    "-pa2",    ArgType.Set printA2,                                   "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
   ] 
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 

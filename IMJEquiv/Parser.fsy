@@ -17,9 +17,12 @@ let reportError (p: IParseState) (s: String) (n: Int) =
   raise (ParseError (s, posn.Line, posn.Column + 1))
 
 let private anonNum = ref 0
-let anon () = 
+let private anon () = 
   incr anonNum
   "_" + (!anonNum).ToString()
+
+let private constant (n: Int) : Unit =
+  Val.maxint <- max Val.maxint n
 
 let mkEq (s: Term) (t: Term) : Term =
   match s, t with
@@ -72,7 +75,7 @@ let mkLet (x: Ident) (s: Term) (t: Term) : Term =
 Term:
   | NULL                                            { Term.Null }
   | ID                                              { Term.BVar $1 }
-  | NUM						                        { Term.Num $1 }
+  | NUM						                        { constant $1; Term.Num $1 }
   | SKIP						                    { Term.Skip }
   | Term PLUS Term				                    { Term.Plus ($1, $3) }
   | Term PLUS Recover                               { reportError parseState "Expected term" 3 }
