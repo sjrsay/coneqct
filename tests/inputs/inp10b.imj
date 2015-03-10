@@ -1,3 +1,9 @@
+/*
+  
+  Inequivalent terms as a variation on inp10.  In this variant, the locking and unlocking has been removed from 
+  the implementation of m1 in the first term.
+
+*/
 
 IntVar = { val: int },
 J = { n: void -> void },
