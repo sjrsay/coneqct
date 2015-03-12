@@ -378,13 +378,13 @@ module FPDRA =
 
     | Perm1 pi
     | Perm1Id pi ->
-        let sp = { q.Span with Left = Perm.preApply q.Span.Left pi }
+        let sp = { q.Span with Left = Map.mapDom q.Span.Left (fun k -> pi.[k]) }
         let q' = { q with State = q2; Span = sp; Owner = pl }
         [(q, Eps, q'), q']
 
     | Perm2 pi
     | PermId2 pi ->
-        let sp = { q.Span with Right = Perm.preApply q.Span.Right pi }
+        let sp = { q.Span with Right = Map.mapDom q.Span.Right (fun k -> pi.[k]) }
         let q' = { q with State = q2; Span = sp; Owner = pl }
         [(q, Eps, q'), q']
 

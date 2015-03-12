@@ -358,7 +358,7 @@ module Automaton =
                 let newrs' = if Set.contains r'' rs then newrs else Set.add r'' newrs
                 (acc', newrs')
             | PermT (qo, pi, qo') when inQ' qo r ->
-                let r' = Store.postPermute pi (Perm.preApply r pi)
+                let r' = Store.postPermute pi (Map.mapDom r (fun k -> pi.[k]))
                 let qor = { State = qo; Store = r } :> State
                 let qo'r = { State = qo'; Store = r' } :> State
                 let t = PermT (qor, pi, qo'r)
@@ -633,7 +633,8 @@ module Automaton =
               let szCodf = Set.count codf
               let remCod = Store.nextiReg (sz-szCodf) (Set.union x' y)
               let remDom = Set.difference domSj' (Map.domain f)
-              Perm.extendPartial f (Set.toList remDom) (Set.toList remCod)
+              // Extend the partial permutation to a full one:
+              List.fold2 (fun p x y -> Map.add x y p) f (Set.toList remDom) (Set.toList remCod)
             let qfsj' = qfs.[st]
             for f in fs do
               let qint = newState ()
