@@ -1,7 +1,6 @@
 ﻿namespace IMJEquiv
 
 /// The type of terms, follows the grammar of the paper.
-[<StructuredFormatDisplayAttribute("{Show}")>]
 type Term = 
   | BVar of Ident
   | Num of Int32
@@ -22,8 +21,6 @@ type Term =
   | While of Term * Term
   | New of Ident * IntId * List<MethSpec>
   | Null 
-
-  member x.Show = x.ToString ()
 
   override x.ToString () : String =
     match x with
@@ -48,7 +45,7 @@ type Term =
     | New (x,i,ms) -> sprintf "new { %O: %O; %s }" x i (List.toStringWithDelims "" ", " "" ms)
 
 
-and [<StructuredFormatDisplay("{Show}")>] MethSpec = 
+and MethSpec = 
   {
     Name: Ident
     Vars: List<Ident> 
@@ -60,6 +57,8 @@ and [<StructuredFormatDisplay("{Show}")>] MethSpec =
   override x.ToString () : String =
     sprintf "%s: \\%s.%O" x.Name (List.toStringWithDelims "" " " "" x.Vars) x.Body
 
+/// Context items are either interface definitions
+/// or typings for free variables
 type CxtItem = 
   | IFaceDef of IntId * ITblDfn
   | Typing of Ident * Ty
@@ -152,6 +151,10 @@ module Term =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Cxt = 
 
+  /// Given a context c, separate splits c into a type environment
+  /// comprising all those elements of c that are typings and an
+  /// interface table comprising all those elements of c that are
+  /// interface definitions.
   let separate (c:Cxt) : ITbl * TyEnv =
     let distinguish (ci: CxtItem) (m: ITbl, e: TyEnv) =
       match ci with

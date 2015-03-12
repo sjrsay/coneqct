@@ -1,6 +1,7 @@
 ﻿namespace IMJEquiv
 
-[<StructuredFormatDisplay("{Show}")>]
+/// The type of single moves.  
+/// Note we represent tupled moves rather as List<Move>.
 type Move = 
   | ValM of Val
   | Call of RegId * MethId * List<Val>
@@ -12,11 +13,10 @@ type Move =
     | Call (r, mth, vs) -> sprintf "call %d.%s(%s)" r mth (List.toStringWithDelims "" "," "" vs)
     | Ret (r, mth, v) -> sprintf "ret %d.%s(%O)" r mth v
 
-  member x.Show = x.ToString ()
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Move =
 
+  /// Given a move m, returns the support of m.
   let rec supp (m: Move) : Set<RegId> =
     match m with
     | ValM v -> Val.supp v
@@ -38,19 +38,20 @@ module Move =
     | ValM (VReg r) -> r
     | _ -> failwith "Expected a register move."
 
+  /// Given a move list ms, returns its string representation.
   let listToString (ms: List<Move>) : String =
     match ms with
     | []   -> ""
     | [x]  -> x.ToString ()
     | _::_ -> List.toStringWithDelims "(" ", " ")" ms
 
-  /// Given register index `rnum` and type environment `g`, 
-  /// with `g = [x_1:t_1, ..., x_n:t_n]`, `ofContext rnum g` is
-  /// `[m_1, ..., m_2]` with `m_i` a possible initial move
-  /// corresponing to the `x_i:t_i`.  If `t_i` is an interface
-  /// then `m_i` is determined as the move `ValM (VReg r)`
-  /// where `r` is the smallest register number not occurring
-  /// in `[m_1, ..., m_{i-1}]` that is no smaller than `rnum`.
+  /// Given register index rnum and type environment g, 
+  /// with g = [x_1:t_1; ...; x_n:t_n], ofContext rnum g is
+  /// [m_1; ...; m_2] with `_i a possible initial move
+  /// corresponing to the x_i:t_i.  If t_i is an interface
+  /// then m_i is determined as the move ValM (VReg r)
+  /// where r is the smallest register number not occurring
+  /// in [m_1, ..., m_{i-1}] that is no smaller than rnum.
   let ofContext (rnum: Int) (g: TyEnv) : List<List<Move>> =
 
     let allOfTy (r: Int) (ty: Ty) : Int * List<Val> =

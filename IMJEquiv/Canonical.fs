@@ -1,6 +1,8 @@
 ﻿namespace IMJEquiv
 
-[<StructuredFormatDisplayAttribute("{Show}")>]
+/// Canonical forms are defined in the paper by two mutually recursive
+/// grammars, here represented as Canon and CanLet.  Additionally, CanMeth
+/// packages up method specifications.
 type Canon =
   | NullR
   | Var of Ident
@@ -8,12 +10,11 @@ type Canon =
   | Let of Ident * CanLet * Canon
   | If of Ident * Canon * Canon
 
-  member c.Show : String =
-    c.ToString ()
-
   override c.ToString () : String =
     (Canon.ToTerm c).ToString ()
 
+  // View a canonical form as a term.  This has to be a static method
+  // because it is referenced by the method ToString ().
   static member ToTerm (c: Canon) : Term =
     match c with
     | NullR -> Term.Null
@@ -26,19 +27,19 @@ type Canon =
     | Let (x,m,b) -> Term.Let (x, CanLet.ToTerm m, Canon.ToTerm b)
     | If (x,t,f) -> Cond (BVar x, Canon.ToTerm t, Canon.ToTerm f)
 
-and [<StructuredFormatDisplayAttribute("{Show}")>] CanMeth =
+and CanMeth =
   {
     Name: MethId
     Vars: List<Ident>
     Body: Canon
   }
 
-  member cm.Show : String =
-    cm.ToString ()
-
   override cm.ToString () : String =
     (CanMeth.ToMethSpec cm).ToString ()
 
+  // View a canonical form method as a term method.  
+  // This has to be a static method
+  // because it is referenced by the method ToString ().
   static member ToMethSpec (cm: CanMeth) : MethSpec =
     {
       Name = cm.Name
@@ -46,7 +47,7 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanMeth =
       Body = Canon.ToTerm cm.Body
     }
 
-and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
+and CanLet =
   | NullL of Ty
   | Num of Int32
   | Skip
@@ -59,12 +60,11 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
   | While of Ident * Canon
   | NewB of Ident * IntId * List<CanMeth>
 
-  member cl.Show : String =
-    cl.ToString ()
-
   override cl.ToString () : String =
     (CanLet.ToTerm cl).ToString ()
 
+  // View a canonical let form as a term.  This has to be a static method
+  // because it is referenced by the method ToString ().
   static member ToTerm (cl: CanLet) : Term =
     match cl with
     | NullL _ -> Term.Null
@@ -82,17 +82,21 @@ and [<StructuredFormatDisplayAttribute("{Show}")>] CanLet =
 
 module Canonical =
 
+  /// A source of fresh variables.
   let private idCnt : Ref<Int32> = ref 0
   
-  let newVar () : Ident = 
+  /// Returns a fresh variable.
+  let private newVar () : Ident = 
     idCnt := !idCnt + 1;
     "x" + (!idCnt).ToString ()
 
-  let subIdent (x: Ident, y: Ident) (z: Ident) : Ident =
+  /// Given pair of identifiers (x,y) and identifier z
+  /// returns [x/y]z.
+  let private subIdent (x: Ident, y: Ident) (z: Ident) : Ident =
     if y = z then x else z
 
-  /// Given a single variable renaming `(y, x)` and a canonical 
-  /// form `c`, `subst (y, x) c` is `c[y/x]`.
+  /// Given a single variable renaming (x,y) and a canonical 
+  /// form c, returns c[x/y].
   let rec subst (sub: Ident * Ident) (c: Canon) : Canon =
     match c with
     | NullR -> c  
@@ -121,7 +125,11 @@ module Canonical =
         Body = subst sub m.Body
     }
 
-  let rec lemma34 (x: Ident) (cm: Canon) (cm': Canon) : Canon =
+  /// Given an identifier x and two canonical forms cm and cm',
+  /// returns the canonical form of let x = cm in cm'.  This is
+  /// exactly the effective content of Lemma 34 from the original 
+  /// draft of the paper.
+  let rec private lemma34 (x: Ident) (cm: Canon) (cm': Canon) : Canon =
     match cm with
     | NullR -> NullR
     | Var y -> subst (y, x) cm'
@@ -139,7 +147,10 @@ module Canonical =
      | If (y, c1, c2) ->
          If (y, lemma34 x c1 cm', lemma34 x c2 cm')
 
-  let rec inlineCalls (mp: Map<Ident,List<CanMeth>>) (cm': Canon) : Canon * Bool =
+  /// Given a mapping mp of identifiers to lists of methods, and a canonical form cm',
+  /// returns a pair (cm'', b) where cm'' is cm' but with each call x.m(vs) replaced by
+  /// the corresponding method body whenever m is in mp.[x].
+  let rec private inlineCalls (mp: Map<Ident,List<CanMeth>>) (cm': Canon) : Canon * Bool =
     match cm' with
     | NullR -> (cm',false)
     | Var x ->  (cm',false)
@@ -176,7 +187,7 @@ module Canonical =
         let c2',b2 = inlineCalls mp c2
         (If (x, c1', c2'), b1||b2)
 
-  and inlineCallsInCanLet (mp: Map<Ident,List<CanMeth>>) (cm': CanLet) : CanLet * Bool =
+  and private inlineCallsInCanLet (mp: Map<Ident,List<CanMeth>>) (cm': CanLet) : CanLet * Bool =
     match cm' with
     | NullL _
     | Num _ 
@@ -194,13 +205,15 @@ module Canonical =
         let ns',b = List.fold (fun (ns',b) n -> let n',b' = inlineCallsInMeth mp n in (n'::ns', b||b')) ([],false) ns
         (NewB (x, i, ns'), b)
 
-  and inlineCallsInMeth (mp: Map<Ident,List<CanMeth>>) (cm': CanMeth) : CanMeth * Bool =
+  and private inlineCallsInMeth (mp: Map<Ident,List<CanMeth>>) (cm': CanMeth) : CanMeth * Bool =
     // Remove shadowed variables
     let mp' = Map.filter (fun k _ -> not <| List.contains k cm'.Vars) mp
     let body,b = inlineCalls mp' cm'.Body
     ({ cm' with Body = body }, b)
 
-  let inlineAllCalls (cm: Canon) : Canon =
+  /// Given a canonical form cm, returns cm but with
+  /// all calls inlined.
+  let private inlineAllCalls (cm: Canon) : Canon =
     
     let rec fix (c: Canon) : Canon =
       let c',b = inlineCalls Map.empty c
@@ -208,8 +221,13 @@ module Canonical =
 
     fix cm
 
+  /// Given a canonical form c, returns c viewed as a term.
   let toTerm (c: Canon) : Term = Canon.ToTerm c
+
+  /// Given a method in canonical form, returns the method viewed as a term.
   let methToTerm (cm: CanMeth) : MethSpec = CanMeth.ToMethSpec cm
+
+  /// Given a canonical let form, returns the same viewed as a term.
   let canLetToTerm (cl: CanLet) : Term = CanLet.ToTerm cl
 
   /// The canonical form for divergence `div` is exactly
@@ -231,9 +249,15 @@ module Canonical =
     let newLet   = Let (y, NewB (newVar (), "_VarInt", []), constLet)
     newLet
 
-  let letout (c: CanLet) : Canon =
+
+  /// Given a canonical let form c, returns it lifted to
+  /// a (normal) canonical form: let x = c in x.
+  let private letout (c: CanLet) : Canon =
     let x = newVar () in Canon.Let (x,c,Var x)
 
+  /// Given an interface table d, a type environment e and a term t,
+  /// such that d,e |- t is in the fragment, returns the canonical form of t.
+  /// Implementation follows the effective content of the proof from the paper.
   let rec canonise (d: ITbl) (e: TyEnv) (t: Term) : Canon =
     match t with
     | BVar x -> Var x
