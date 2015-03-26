@@ -767,6 +767,13 @@ module IMJA =
           let g' = List.append g [(x, Int)]
           let cAuto = fromCanon d g' c mu' s
           cAuto
+       | Let (x, Gre (y,z), c) ->
+          let yval = Move.toInt (mu.[TyEnv.index y g])
+          let zval = Move.toInt (mu.[TyEnv.index z g])
+          let mu' = List.append mu  [ValM (VNum (if yval > zval then 1 else 0))]
+          let g' = List.append g [(x, Int)]
+          let cAuto = fromCanon d g' c mu' s
+          cAuto
        | Let (y, Eq (x1, x2), c) -> 
           let cmp = 
             match mu.[TyEnv.index x1 g], mu.[TyEnv.index x2 g] with

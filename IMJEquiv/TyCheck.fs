@@ -143,6 +143,10 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
         do check d g m Int
         do check d g n Int
         Int
+    | Gre (m,n) ->
+        do check d g m Int
+        do check d g n Int
+        Int
     | Eq (m,n) ->
         let mTy = infer d g m
         do check d g n mTy

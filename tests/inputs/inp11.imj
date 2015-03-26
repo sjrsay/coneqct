@@ -1,0 +1,20 @@
+/*
+  
+  Inequivalence based on Example 1.2 from Pitts and Stark's 
+  "Operational Reasoning for Functions with Local State".
+
+*/
+
+IntRef = { val:int },
+I = { m:IntRef -> IntRef }
+---------------------------------------
+
+let a = new {_:IntRef;} in
+let b = new {_:IntRef;} in
+new {_:I; m:\c. if c = a then b else a }
+
+  =?=
+
+let a = new {_:IntRef;} in
+let b = new {_:IntRef;} in
+new {_:I; m:\c. if c = b then b else a }

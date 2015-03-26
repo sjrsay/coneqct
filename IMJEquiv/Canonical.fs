@@ -53,6 +53,7 @@ and CanLet =
   | Skip
   | Plus of Ident * Ident
   | Eq of Ident * Ident
+  | Gre of Ident * Ident
   | Assn of Ident * FldId * Ident
   | Cast of IntId * Ident
   | Call of Ident * MethId * List<Ident>
@@ -71,6 +72,7 @@ and CanLet =
     | Num n -> Term.Num n
     | Skip -> Term.Skip
     | Plus (x,y) -> Term.Plus (BVar x, BVar y)
+    | Gre (x,y) -> Term.Gre (BVar x, BVar y)
     | Eq (x,y) -> Term.VEq (x, y)
     | Assn (x,f,y) -> Term.Assn (BVar x, f, BVar y)
     | Cast (i,x) -> Term.Cast (i, BVar x)
@@ -110,6 +112,7 @@ module Canonical =
     | NullL _
     | Num _ 
     | Skip  -> c
+    | Gre (x, y) -> Gre (subIdent sub x, subIdent sub y)
     | Plus (x, y) -> Plus (subIdent sub x, subIdent sub y)
     | Eq (x, y) -> Eq (subIdent sub x, subIdent sub y)
     | Assn (x, f, z) -> Assn (subIdent sub x, f, subIdent sub z)
@@ -193,6 +196,7 @@ module Canonical =
     | Num _ 
     | Skip  
     | Plus _ 
+    | Gre _
     | Eq _ 
     | Assn _ 
     | Cast _ -> (cm',false)
@@ -273,6 +277,12 @@ module Canonical =
         let x'  = newVar ()
         let x'' = newVar ()
         let let1 = Let (x'', Plus (x, x'), Var x'')
+        let let2 = lemma34 x' (canonise d e m') let1
+        lemma34 x (canonise d e m) let2
+    | Term.Gre (m, m') ->
+        let x = newVar ()
+        let x' = newVar ()
+        let let1 = letout (Gre (x,x'))
         let let2 = lemma34 x' (canonise d e m') let1
         lemma34 x (canonise d e m) let2
     | Term.VEq (x, y) -> canonise d e (Term.Eq (BVar x,BVar y))
