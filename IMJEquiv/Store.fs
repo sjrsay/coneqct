@@ -6,9 +6,9 @@ type Store =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Store = 
   
-  /// Given a symbolic store `s`, a register id `k` and a value `v`,
-  /// such that `s` contains a register `k` which contains a field `f`,
-  /// `update s k v` is the store `s` but with `f` now mapped to `v`.
+  /// Given a symbolic store s, a register id k and a value v,
+  /// such that s contains a register k which contains a field f,
+  /// returns the store s but with f now mapped to v.
   let update (s: Store) (k: RegId) (f: FldId) (v: Val) : Store =
     let upd (i, m) =
       let newMap = 
@@ -16,13 +16,16 @@ module Store =
       (i, newMap)
     Map.update k upd s
 
-
-  let private permuteFields (p: Perm<RegId>) (m: Map<FldId, Val>) : Map<FldId, Val> =
-    Map.map (fun _ v -> Val.permute p v) m
-
+  /// Given a permutation p of register ids and a store s,
+  /// returns s but with those register ids stored in fields 
+  /// permuted by p.
   let postPermute (p: Perm<RegId>) (s: Store) : Store =
+    let permuteFields (p: Perm<RegId>) (m: Map<FldId, Val>) =
+      Map.map (fun _ v -> Val.permute p v) m
     Map.map (fun _ (i, v) ->  (i, permuteFields p v)) s
 
+  /// Given an interface table d and a store s, returns
+  /// the typed support of s.
   let tySupp (d: ITbl) (s: Store) : Set<RegId * IntId> =
     let getInnerVals i acc f v =
       match v with
@@ -34,11 +37,11 @@ module Store =
       Map.fold (getInnerVals i) (Set.add (r, i) acc) m
     Map.fold getOuterVals Set.empty s
 
-  /// Given a store `s`, `splitSupp s` is the pair of
-  /// sets of registers `(xs, ys)`, where `xs` is just
-  /// the domain of `s` and `ys` is all those registers
+  /// Given a store s, returns the pair of
+  /// sets of registers (xs, ys), where xs is just
+  /// the domain of s and ys is all those registers
   /// that occur in values stored in fields that are in
-  /// the codomain of `s`.
+  /// the codomain of s.
   let splitSupp (s: Store) : Set<RegId> * Set<RegId> =
     let getInnerVals acc f v =
       match v with
@@ -49,13 +52,14 @@ module Store =
     let cod = Map.fold getOuterVals Set.empty s
     (Map.domain s, cod)
 
+  /// Given a store s, returns its support.
   let supp (s: Store) : Set<RegId> =
     let dom, cod = splitSupp s
     Set.union dom cod
 
-  /// Given a store `s` and a set of registers `rs`, `trim s rs` is
-  /// the store `s@rs`, i.e. containing only those parts of `s` that
-  /// are reachable from `rs`.
+  /// Given a store s and a set of registers rs, trim s rs is
+  /// the store s@rs, i.e. containing only those parts of s that
+  /// are reachable from rs.
   let trim (s: Store) (rs: Set<RegId>) : Store =
     let rec fix rs =
       let s' =
@@ -65,12 +69,16 @@ module Store =
     let supp = fix rs
     Map.filter (fun r _ -> Set.contains r supp) s
 
+  /// Given a set of register ids rs returns
+  /// the smallest register id fresh for rs.
   let nextReg (rs: Set<RegId>) : RegId =
     let n = ref 1
     while Set.contains !n rs do
       n := !n + 1
     !n
 
+  /// Given a natural i and a set of register ids rs,
+  /// returns the i smallest register ids fresh for rs.
   let rec nextiReg (i: Int32) (rs: Set<RegId>) : Set<RegId> =
     if i=0 then 
       Set.empty 
@@ -78,12 +86,17 @@ module Store =
       let r = nextReg rs
       Set.add r (nextiReg (i-1) (Set.add r rs))
 
+  /// Given a set of typed register ids rs, returns the 
+  /// smallest register id that is fresh for the ids in rs.
   let nextTypedReg (rs: Set<RegId * IntId>) : RegId =
     let n = ref 1
     while Set.exists (fun (r, _) -> r = !n) rs do
       n := !n + 1
     !n
 
+  /// Given an interface table d and an interface id i,
+  /// returns a mapping from each field f:T of i according
+  /// to d, to the default value of type T.
   let mkDefaultObj (d: ITbl) (i: IntId) : Map<FldId,Val> =
     let tyFlds = ITbl.fields d i
     let doField m (f, ty) =
@@ -162,8 +175,13 @@ module Store =
                 acc := List.append ss !acc
                 !acc
 
-  /// `stores'` is `stores` with an extra integer parameter `n` for the maximum integer range.
-  let stores' (n: Int) (d: ITbl) (s0: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
+  ///
+  /// Given an interface table `d`, an initial store `s0` and a set of registers `z`,
+  /// returns all possible stores `s` which have `dom(s)` including `z` 
+  /// and values taken from `{*}` for fields of type `void`, `{1..maxint}` for fields of
+  /// type `int` and registers either drawn from `s0` or fresh.
+  ///
+  let stores (d: ITbl) (s0: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
 
     let rec storesAux (d: ITbl) (s: Store) (s0Names: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
       let sDom = Map.fold (fun dom k (i,_) -> Set.add (k, i) dom) Set.empty s
@@ -176,7 +194,7 @@ module Store =
           let s' = Map.add r (i, Map.empty) s
           let spp = supp s'
           let s0Names' = Set.filter (fun (k, _) -> not (Set.contains k spp)) s0Names
-          for s'' in vals n d freeRegs fs s' s0Names' do
+          for s'' in vals Val.maxint d freeRegs fs s' s0Names' do
             let z' = tySupp d s''
             if z = z' then acc := s'' :: !acc
             else acc := !acc @ storesAux d s'' s0Names' z'
@@ -184,21 +202,11 @@ module Store =
 
     storesAux d Map.empty s0 z
 
-
-  ///
-  /// Given an interface table `d`, an initial store `s0` and a set of registers `z`,
-  /// such that: 
-  ///    (i) `z` is included in `dom(s0)` 
-  /// `stores d s0 z` generates all possible stores `s` which have `dom(s)` including `z` 
-  /// and values taken from `[*]` for fields of type `void`, `[1..maxint]` for fields of
-  /// type `int` and registers either drawn from `s0` or fresh.
-  ///
-  /// NOTE: the reason for (i) is that `s0` and not `z` is used to determine the 
-  /// index of the next unused register (for drawing fresh registers).
-  ///
-  let stores (d: ITbl) (s0: Set<RegId * IntId>) (z: Set<RegId * IntId>) : List<Store> =
-    stores' Val.maxint d s0 z
-    
+   
+   
+  /// Given a set of registers fxd, and stores s and t, returns Some p just in 
+  /// case there is some permutation of register ids fixing fxd such that p(s) = t
+  /// and None otherwise.  
   let alphaEq (fxd: Set<RegId>) (s: Store) (t: Store) : Option<Perm<RegId>> =
     
     let rec checkField (v: Val) (w: Val) (p: Perm<RegId>) : Option<Perm<RegId>> =
@@ -229,7 +237,8 @@ module Store =
 
     Set.fold (fun popt r -> match popt with Some p -> aeq (r, r) p | None -> None) (Some Map.empty) fxd   
 
-  /// Assumes that there is some store s', permutation p such that s' in ss and alphaEq fixd s s' = p 
+  /// Given a set of register ids fixd, a store s and a list of stores ss such that there 
+  /// is some store s', permutation p such that s' in ss and alphaEq fixd s s' = p, returns (s', p)
   let findWithWitness (fixd: Set<RegId>) (s: Store) (ss: List<Store>) : Store * Perm<RegId> =
     let folder opt s' =
       match opt with 
@@ -244,6 +253,8 @@ module Store =
     | Some p -> p
 
    
+  /// Given an interface table d, a type environment g and a list of moves (tuple move) ms,
+  /// returns a list of all the possible initial symbolic stores for ms wrt d and g.
   let fromMoves (d: ITbl) (g: TyEnv) (ms: List<Move>) : List<Store> =
     let tyspp = List.fold2 (fun s m (_,ty) -> match m, ty with ValM (VReg r), Iface i -> Set.add (r,i) s | _ -> s) Set.empty ms g
     stores d Set.empty tyspp

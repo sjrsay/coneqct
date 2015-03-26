@@ -1,5 +1,10 @@
 /*
 
+  Equivalent terms from the "Callback with lock" example
+  from page 5 of Dreyer Neis and Birkedal's "The Impact
+  of Higher-Order State and Control Effects on Local 
+  Relational Reasoning".
+
 */
 
 IntVar = { val: int },

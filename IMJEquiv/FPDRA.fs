@@ -16,23 +16,16 @@ type Span =
   static member range (s: Span) : Set<Int> = 
     Map.codomain s.Left + Map.codomain s.Right
 
-[<CustomComparison>]
-[<StructuralEquality>]
-[<StructuredFormatDisplayAttribute("{Show}")>]
 type SpanState = 
   {
-    State: State2
+    State: IMJ2AState
     Span: Span
     Store: Store
     Owner: Player
   }
 
-  interface State with
-    member x.CompareTo (yobj: Object) =
-      let y = yobj :?> SpanState
-      compare (x.Owner, x.State, x.Span, x.Store) (y.Owner, y.State, y.Span, y.Store)
-
-  member x.Show = x.ToString ()
+  override x.ToString () =
+    sprintf "%O[%O][%O]" x.State x.Store x.Span
 
 type PushData = 
   StackConst * Set<RegId>
@@ -180,7 +173,7 @@ module FPDRA =
   ///                                 `s0[s1]` and `s0[s2]` are compatible (`pl` = `P`)
   ///                                 `s` is `s1` + `s2` under `sp`.
   ///   * `None`                 otherwise
-  let isGoodSpan (pl: Player) (s0: Store) ((mu1, s1): Label) ((mu2, s2): Label) (sp: Span) : Option<Store> =
+  let isGoodSpan (pl: Player) (s0: Store) ((mu1, s1): Letter) ((mu2, s2): Letter) (sp: Span) : Option<Store> =
       if matchedMoves sp [mu1] [mu2] then
         let s1' = importStore sp.Left s1
         let s2' = importStore sp.Right s2
@@ -203,7 +196,7 @@ module FPDRA =
   /// state `q2` in the product: `transFromTrans n q t pl` is the list of all
   /// pairs `(t', q')` in which `t'` is the FPDRS equivalent transition to `t` that 
   /// reaches FPDRS state `q'`.  
-  let transFromTrans (n: Int) (lTags, rTags) (q: SpanState) ((q1,tl,q2): Transition2) (pl: Player) : List<Trans * SpanState> =
+  let transFromTrans (n: Int) (lTags, rTags) (q: SpanState) ((q1,tl,q2): IMJ2ATransition) (pl: Player) : List<Trans * SpanState> =
     let collectGoodSpans l1 l2 acc sp =
       match isGoodSpan q.Owner q.Store l1 l2 sp with
       | None -> acc
@@ -219,7 +212,7 @@ module FPDRA =
       let ran'  = Set.union ranL' ranR'
       Set.difference ran' ran
 
-    let divergeIfNecessary (tl1: TransLabel) (tl2: TransLabel) xs =
+    let divergeIfNecessary (tl1: MoveLabel) (tl2: MoveLabel) xs =
       match q.Owner with
       | O -> xs
       | P -> 
@@ -238,9 +231,9 @@ module FPDRA =
               [ (t1, q1'); (t2, q2') ]
           | _::_ -> xs
 
-    let divTrans tags tl mkSpan pi  =
+    let divTrans tags (tl: MoveLabel) mkSpan pi  =
       match tl with
-      | TransLabel.Noop (xs, l) ->
+      | NoopL (xs, l) ->
           let xs' = Set.toList xs
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
@@ -253,7 +246,7 @@ module FPDRA =
               let x = fresh sp'
               yield ((q, Noop x, q'), q')
           ]
-      | TransLabel.Push (xs, l, p, y) ->
+      | PushL (xs, l, p, y) ->
           let xs' = Set.toList xs
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
@@ -267,7 +260,7 @@ module FPDRA =
               let y' = Set.map (fun x -> (pi q.Span).[x]) y
               yield ((q, Push1 (x, (p,y')), q'), q')
           ]
-      | TransLabel.Pop (xs, l, p, y, z) ->
+      | PopL (xs, l, p, y, z) ->
           let xs' = Set.toList xs
           let ran = Map.codomain (pi q.Span) 
           let avail = Set.difference (set {1..n}) ran
@@ -301,7 +294,7 @@ module FPDRA =
     match tl with
     | Move12 (tl1,tl2) ->
         match tl1, tl2 with
-        | TransLabel.Noop (xs1, l1), TransLabel.Noop (xs2, l2) ->
+        | NoopL (xs1, l1), NoopL (xs2, l2) ->
             let freshSpans = newSpans n q.Owner xs1 xs2 q.Span
             let goodSpans = Seq.fold (collectGoodSpans l1 l2) [] freshSpans
             let newTrans = [            
@@ -311,7 +304,7 @@ module FPDRA =
                   yield ((q, Noop x, q'), q')
               ]
             divergeIfNecessary tl1 tl2 newTrans
-        | TransLabel.Push (xs1, l1, p1, y1), TransLabel.Push (xs2, l2, p2, y2) ->
+        | PushL (xs1, l1, p1, y1), PushL (xs2, l2, p2, y2) ->
             let freshSpans = newSpans n q.Owner xs1 xs2 q.Span
             let goodSpans = Seq.fold (collectGoodSpans l1 l2) [] freshSpans
             let newTrans = [
@@ -323,7 +316,7 @@ module FPDRA =
                   yield ((q, Push (x, (p1,y1'), (p2,y2')), q'), q')
               ]
             divergeIfNecessary tl1 tl2 newTrans
-        | TransLabel.Pop (xs1, l1, p1, y1, z1), TransLabel.Pop (xs2, l2, p2, y2, z2) ->
+        | PopL (xs1, l1, p1, y1, z1), PopL (xs2, l2, p2, y2, z2) ->
             let free1 = Set.difference y1 z1
             let free2 = Set.difference y2 z2
             let popSpans = newSpans n O free1 free2 q.Span
@@ -389,13 +382,13 @@ module FPDRA =
         [(q, Eps, q'), q']
 
 
-  let fromProduct (a: Automaton2) : FPDRA =
+  let fromIMJ2A (a: IMJ2A) : FPDRA =
     
     let lTags, rTags = 
-      let getTags (lTags, rTags) (_,t: TLabel2,_) =
+      let getTags (lTags, rTags) (_,t: IMJ2ALabel,_) =
         match t with
-        | Move1 (TransLabel.Push(_,_,sc,_)) -> (Set.add sc lTags, rTags)
-        | Move2 (TransLabel.Push(_,_,sc,_)) -> (lTags, Set.add sc rTags)
+        | Move1 (PushL(_,_,sc,_)) -> (Set.add sc lTags, rTags)
+        | Move2 (PushL(_,_,sc,_)) -> (lTags, Set.add sc rTags)
         | _ -> (lTags, rTags)
       List.fold getTags (Set.empty,Set.empty) a.Trans
 
@@ -406,7 +399,7 @@ module FPDRA =
       if not (List.isEmpty fr) then
         let newFr = [
             for q in fr do
-              for _,_,q2 as t in Product.transFromState a q.State do
+              for _,_,q2 as t in IMJ2A.transFromState a q.State do
                 let pl = a.Owner q2
                 let news = transFromTrans a.NumRegs (lTags,rTags) q t pl
                 for t',q' in news do

@@ -3,14 +3,15 @@
 open NUnit.Framework
 
 [<Test>]
-let ``empty context`` () =
-  let g = []
+let ``void context`` () =
+  let g = ptyenv "x:void"
   let result = Move.ofContext 3 g
   let expected = [pmove "*"]
   Assert.AreEqual (result, expected)
 
 [<Test>]
 let ``int context`` () =
+  do Val.maxint <- 1
   let g = ptyenv "x1: int, x2: int"
   let result = Move.ofContext 3 g
   let expected = [

@@ -14,8 +14,8 @@ let ``auto1`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 1,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 1,IMJA.toDot a)
 
 [<Test>]
 let ``auto2`` () =
@@ -25,8 +25,8 @@ let ``auto2`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : I = {}"
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 2,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 2,IMJA.toDot a)
 
 [<Test>]
 let ``auto3`` () =
@@ -36,8 +36,8 @@ let ``auto3`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : J = {}"
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 3,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 3,IMJA.toDot a)
 
 [<Test>]
 let ``auto4`` () =
@@ -47,8 +47,8 @@ let ``auto4`` () =
   let c = Canonical.canonise d g t
   let m = Move.ValM (Val.VReg 1)
   let s = pstore "r1 : VarEmpty = { val = null }"
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 4,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 4,IMJA.toDot a)
 
 [<Test>]
 let ``auto5`` () =
@@ -58,39 +58,27 @@ let ``auto5`` () =
   let c = Canonical.canonise d g t
   let m = [Move.ValM (Val.VReg 1)]
   let s = pstore "r1 : VarInt = { val = 0 }"
-  let a = Automaton.fromCanon d g c m s
-  System.IO.File.WriteAllText(fn 5,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c m s
+  System.IO.File.WriteAllText(fn 5,IMJA.toDot a)
 
 [<Test>]
 let ``auto6`` () =
-  let d = pitbl "VarInt = {val:int}"
+  let d = ITbl.initialise (pitbl "")
   let g = ptyenv "cxt:void"
   let t = ptm "while 1 do skip"
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 6,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 6,IMJA.toDot a)
 
 [<Test>]
 let ``auto7`` () =
-  let d = pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
+  let d = ITbl.initialise (pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }")
   let g = ptyenv "cxt:void"
   let t = ptm "let v = new {a:VarEmpty;} in new {z:Cell; get:\x.v.val, set:\y.if y=null then (while 1 do skip) else (v.val := y)}"
   let c = Canonical.canonise d g t
   let m = Move.ValM Val.VStar
   let s = pstore ""
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 7,Automaton.toDot a)
-
-[<Ignore>]
-[<Test>]
-let ``auto8`` () =
-  let d = pitbl "Empty = { }, VarInt = { val:int }, VarEmpty = { val: Empty }, Cell = { get:void -> Empty, set:Empty -> void }"
-  let g = ptyenv "cxt:void"
-  let t = ptm "let b = new {c:VarInt;} in let v = new {a:VarEmpty;} in let w = new {d:VarEmpty;} in new {z:Cell; get:\x.if b.val = 1 then (b.val := 0; v.val) else (b.val := 1; w.val), set:\y.if y=null then (while 1 do skip) else (v.val := y; w.val := y)}"
-  let c = Canonical.canonise d g t
-  let m = Move.ValM Val.VStar
-  let s = pstore ""
-  let a = Automaton.fromCanon d g c [m] s
-  System.IO.File.WriteAllText(fn 8,Automaton.toDot a)
+  let a = IMJA.fromCanon d g c [m] s
+  System.IO.File.WriteAllText(fn 7,IMJA.toDot a)

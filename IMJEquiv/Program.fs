@@ -85,23 +85,23 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   let timer = Stopwatch.StartNew ()
   do printf "Processing initial position (%s, %A):\n" (Move.listToString mu) s
   
-  let a1    = Automaton.fromCanon d g c1 mu s
-  let a1'   = Automaton.remPLoops a1
+  let a1    = IMJA.fromCanon d g c1 mu s
+  let a1'   = IMJA.remPLoops a1
   do printf "\tIMJA 1: %d states, %d transitions (%dms).\n" a1.States.Length a1.TransRel.Length timer.ElapsedMilliseconds
-  if !printA1 then System.IO.File.WriteAllText ("auto1.dot", Automaton.toDot a1)
+  if !printA1 then System.IO.File.WriteAllText ("auto1.dot", IMJA.toDot a1)
   do timer.Restart ()
 
-  let a2    = Automaton.fromCanon d g c2 mu s
-  let a2'   = Automaton.remPLoops a2
+  let a2    = IMJA.fromCanon d g c2 mu s
+  let a2'   = IMJA.remPLoops a2
   do printf "\tIMJA 2: %d states, %d transitions (%dms).\n" a2.States.Length a2.TransRel.Length timer.ElapsedMilliseconds
-  if !printA2 then System.IO.File.WriteAllText ("auto2.dot", Automaton.toDot a2')
+  if !printA2 then System.IO.File.WriteAllText ("auto2.dot", IMJA.toDot a2')
   do timer.Restart ()
 
-  let imj2  = Product.fromAutomata (mu, s) a1' a2'
+  let imj2  = IMJ2A.fromIMJA a1' a2' (mu, s)
   do printf "\tIMJ2A: %d states, %d transitions, %d registers (%dms).\n" imj2.States.Length imj2.Trans.Length imj2.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
 
-  let fpdra = FPDRA.fromProduct imj2
+  let fpdra = FPDRA.fromIMJ2A imj2
   let fpdrs, initial, finals = Serialise.fpdra fpdra
   do printf "\tFPDRS: %d states, %d transitions, %d registers (%dms).\n" fpdrs.NumStates fpdrs.NumTrans fpdrs.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()

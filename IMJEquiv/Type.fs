@@ -17,14 +17,10 @@ type RegId = Int32
 exception TypeError of String
 
 /// Types in IMJ
-[<StructuredFormatDisplayAttribute("{Show}")>]
 type Ty = 
   | Void
   | Int
   | Iface of IntId
-
-  member t.Show : String =
-    t.ToString ()
 
   override t.ToString () : String =
     match t with
@@ -81,6 +77,15 @@ module TyEnv =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ITbl =
   
+  /// Given an interface table t, returns t with the definition
+  /// _VarInt = { _val:int } added, which is needed for the 
+  /// canonisation of while terms.
+  let initialise (t: ITbl) : ITbl =
+    let varIntDefn = 
+      let defs = Map.ofList [("_val", IFld Int)]
+      Eqn defs
+    Map.add "_VarInt" varIntDefn t
+
   /// Given an interface table t and interface identifier i, returns 
   /// all the methods m:(ty_1,..,ty_n) -> ty specified by i in t, 
   /// as a list of triples (m, [ty_1,..,ty_n], ty).

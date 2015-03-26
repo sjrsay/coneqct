@@ -25,6 +25,9 @@ module Move =
     | Ret (r,mth,v) ->
         Set.add r (Val.supp v)
 
+  /// Given a list of moves (tuple move), returns its support.
+  let listSupp (ms: List<Move>) : Set<RegId> =
+    List.fold (fun acc m -> Set.union acc (supp m)) Set.empty ms
 
   /// Given an integer move (ValM (VNum i)), returns i.
   let toInt (m: Move) : Int =
