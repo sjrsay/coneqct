@@ -33,7 +33,7 @@
 
     let tNum = ref 0
     let tTbl = HashMap ()
-    let tag (q: IMJEquiv.State) : Int =
+    let tag (q: IMJAState) : Int =
       match HashMap.tryFind q tTbl with
       | Some i -> i
       | None ->

@@ -26,7 +26,7 @@
     <DocumentationFile>..\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug</StartWorkingDirectory>
-    <StartArguments>..\tests\inputs\test.imj</StartArguments>
+    <StartArguments>..\tests\inputs\inp11.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -68,23 +68,23 @@
     <FsLex Include="Lexer.fsl">
       <OtherFlags>--unicode</OtherFlags>
     </FsLex>
-    <Compile Include="Types.fs" />
-    <Compile Include="Syntax.fs" />
+    <Compile Include="Type.fs" />
+    <Compile Include="Term.fs" />
     <Compile Include="TyCheck.fs" />
     <Compile Include="Perm.fs" />
     <Compile Include="Val.fs" />
     <Compile Include="Canonical.fs" />
     <Compile Include="Move.fs" />
     <Compile Include="Store.fs" />
-    <Compile Include="Automaton.fs" />
-    <Compile Include="Product.fs" />
+    <Compile Include="IMJA.fs" />
+    <Compile Include="IMJ2A.fs" />
     <Compile Include="FPDRA.fs" />
-    <Compile Include="Serialise.fs" />
+    <Compile Include="FPDRS.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="Program.fs" />
-    <None Include="App.config" />
+    <None Include="app.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

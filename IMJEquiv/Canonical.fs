@@ -71,7 +71,7 @@ and CanLet =
     | Num n -> Term.Num n
     | Skip -> Term.Skip
     | Plus (x,y) -> Term.Plus (BVar x, BVar y)
-    | Eq (x,y) -> Term.Eq (BVar x, BVar y)
+    | Eq (x,y) -> Term.VEq (x, y)
     | Assn (x,f,y) -> Term.Assn (BVar x, f, BVar y)
     | Cast (i,x) -> Term.Cast (i, BVar x)
     | Call (x,m,vs) -> Term.Call (BVar x, m, List.map BVar vs)
@@ -213,7 +213,7 @@ module Canonical =
 
   /// Given a canonical form cm, returns cm but with
   /// all calls inlined.
-  let private inlineAllCalls (cm: Canon) : Canon =
+  let inlineAllCalls (cm: Canon) : Canon =
     
     let rec fix (c: Canon) : Canon =
       let c',b = inlineCalls Map.empty c
