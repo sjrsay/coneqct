@@ -6,6 +6,7 @@ type Term =
   | Num of Int32
   | Skip
   | Plus of Term * Term
+  | Gre of Term * Term
   | Eq of Term * Term
   | VEq of Ident * Ident
   | Seq of Term * Term
@@ -29,6 +30,7 @@ type Term =
     | Num n  -> n.ToString ()
     | Skip   -> "skip"
     | Plus (x,y) -> sprintf "%O + %O" x y
+    | Gre (x,y) -> sprintf "%O > %O" x y
     | Eq (x,y) -> sprintf "%O = %O" x y
     | VEq (x,y) -> sprintf "%O = %O" x y
     | Seq (x,y) -> sprintf "%O; %O" x y

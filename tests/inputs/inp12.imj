@@ -1,0 +1,22 @@
+/*
+  Equivalence based on Example 5.5 from Pitts and Stark's
+  "Operational Reasoning for Functions with Local State"
+*/
+
+IntRef = { val:int },
+I = { m1:void->void, m2:void->int }
+----------------------------------------
+
+let c = new {_:IntRef;} in
+c.val := 1;
+new {_:I; 
+  m1:\_. c.val := c.val + 1,
+  m2:\_. c.val > 0
+}
+
+  =?=
+
+new {_:I;
+  m1:\_. skip,
+  m2:\_. 1
+}
