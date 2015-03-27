@@ -1,0 +1,34 @@
+/*
+
+  Equivalent terms adapted from Dreyer, Neis and Birkedal's
+  "The impact of higher-order state and control effects on
+  local reasoning" (JFP version).
+
+*/
+
+IntRef = { val:int },
+Op = { m1:void->void },
+E = { m2:Op->int }
+---------------------------------
+
+new {_:E; 
+  m2:\f. 
+    let x = new {_:IntRef;} in
+    let y = new {_:IntRef;} in
+    f.m1();
+    x.val := y.val;
+    y.val := 1;
+    x.val
+}
+
+  =?=
+
+new {_:E;
+  m2:\f.
+    let x = new {_:IntRef;} in
+    let y = new {_:IntRef;} in
+    f.m1();
+    x.val := y.val;
+    y.val := 2;
+    x.val
+}
