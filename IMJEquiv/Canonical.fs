@@ -3,12 +3,15 @@
 /// Canonical forms are defined in the paper by two mutually recursive
 /// grammars, here represented as Canon and CanLet.  Additionally, CanMeth
 /// packages up method specifications.
+[<StructuredFormatDisplay("{Display}")>]
 type Canon =
   | NullR
   | Var of Ident
   | NewR of Option<IntId> * Ident * IntId * List<CanMeth>
   | Let of Ident * CanLet * Canon
   | If of Ident * Canon * Canon
+
+  member c.Display = c.ToString ()
 
   override c.ToString () : String =
     (Canon.ToTerm c).ToString ()

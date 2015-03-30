@@ -41,6 +41,12 @@ module Move =
     | ValM (VReg r) -> r
     | _ -> failwith "Expected a register move."
 
+  /// Given a value move (ValM v), returns v.
+  let toValue (m:Move) : Val =
+    match m with
+    | ValM v -> v
+    | _      -> failwith "Expected a value move"
+
   /// Given a move list ms, returns its string representation.
   let listToString (ms: List<Move>) : String =
     match ms with

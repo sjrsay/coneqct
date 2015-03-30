@@ -26,7 +26,7 @@
     <DocumentationFile>..\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug</StartWorkingDirectory>
-    <StartArguments>..\tests\inputs\inp11.imj</StartArguments>
+    <StartArguments>..\tests\inputs\inp14.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
