@@ -8,6 +8,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{53046B22-8B7A-4D7D-9130-698DAF7540E0}"
 	ProjectSection(SolutionItems) = preProject
 		build.fsx = build.fsx
+		Performance1.psess = Performance1.psess
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "IMJEquivTests", "tests\IMJEquivTests\IMJEquivTests.fsproj", "{A295E719-D70C-45C8-A23C-FF1BC01C0762}"
@@ -139,5 +140,8 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{A295E719-D70C-45C8-A23C-FF1BC01C0762} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
 		{148761AE-9888-4EE9-A8A0-98655AAF4880} = {99A31498-3C17-40CB-AA48-5CDC34AA060A}
+	EndGlobalSection
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
 	EndGlobalSection
 EndGlobal
