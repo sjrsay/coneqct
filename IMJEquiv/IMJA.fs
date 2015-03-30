@@ -625,23 +625,24 @@ module IMJA =
       let qf = qfs.[st]
       do accOwner := Map.add qf O !accOwner
       do accRank := Map.add qf st !accRank
+      let fxd = Map.domain st
       for kvp in cPhis do
         let mthName,ls,st' = kvp.Key
         let ci = kvp.Value
         let y = Map.domain st'
-        let fxd = Map.domain st
         let x = Set.difference y fxd
         let newTl = MoveL (NoopL (x, (Call (rk,mthName,ls), st')))
         let newTrans = {Start=qf; Label=newTl; End=ci.InitS}
-        let isAEq = List.exists (fun t -> alphaEq fxd t.Label newTl) !newTranss
-        if not (isAEq) then newTranss := newTrans :: !newTranss
+//        let isAEq = List.exists (fun t -> alphaEq fxd t.Label newTl) !newTranss
+//        if not (isAEq) then 
+        newTranss := newTrans :: !newTranss
       accTrans := !accTrans @ !newTranss
     // Construct (initial) player returns
     for kvp in cPhis do
       let mthName,ls,st' = kvp.Key
       let ci = kvp.Value
-      do accOwner := Map.union ci.Owner !accOwner
-      do accRank := Map.union ci.Rank !accRank
+      do accOwner := Map.union !accOwner ci.Owner
+      do accRank := Map.union !accRank ci.Rank
       let ftrans, rest = List.partition (fun tr -> isFinalTrans ci tr) ci.TransRel
       for tr in ftrans do
         match tr.Label with
@@ -947,7 +948,6 @@ module IMJA =
                       Final = final
                       Rank = rank
                     }
-          | _ -> empty s
        | Let (z, While (r, c1), c2) -> 
            let rk' = Move.toRegister (mu.[TyEnv.index r g])
            if (snd s.[rk']).["_val"] = VNum 0 then
