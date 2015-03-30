@@ -1,5 +1,36 @@
-﻿namespace IMJEquiv
+﻿//
+// This file defines a kind of FPDRA, but it is still a special kind of automaton
+// which is specific to the IMJ equivalence problem.  These FPDRA are like ordinary 
+// FPDRA(S#) except in a few ways:
+//
+//   * They inherit the two kinds of transitions from IMJ2A, namely the normal 
+//     transitions which operate on stacks of pairs and the divergence transitions 
+//     that only operate on normal stacks. However, apart from the fact that they 
+//     may operate over stacks of pairs, pushing into separate components, the 
+//     transitions are otherwise quite standard.
+//
+//   * The atomic operations associated with transitions operate over sets of 
+//     letters at a time, rather than individual letters.
+//
+//   * For the purpose of translating from IMJ2A, we fix the set of states as objects 
+//     which, in particular, have an associated span, which is a pair of mappings 
+//     that say how the registers of the two automata in the IMJ2A correspond to 
+//     the registers in this FPDRA.  However, this information is only relevant 
+//     during the translation and it plays no part in the semantics of the FPDRA, 
+//     which is standard excepting the points above.
+//
+// These three perculiarities of this special kind of FPDRA are "compiled away" by the
+// translation to standard FPDRS(S#) in FPDRS.fromFPDRA.
+//
 
+namespace IMJEquiv
+
+/// A span records the way that, in a given state, the registers in the 
+/// first automaton of the IMJ2A correspond to the registers in the
+/// FPDRA (Span.Left) and the registers in the second automaton of the IMJ2A
+/// correspond to the registers in the FPDRA (Span.Right).  For example, if 
+/// the first automaton's register 2 is represented by FPDRA register 3, then
+/// this can be indicated by a span s with s.Left.[2] = 3.
 type Span = 
   {
     Left: Map<RegId,RegId>
@@ -16,6 +47,8 @@ type Span =
   static member range (s: Span) : Set<Int> = 
     Map.codomain s.Left + Map.codomain s.Right
 
+/// The FPDRA has states that contain the underlying IMJ2A state,
+/// the current span and 
 type SpanState = 
   {
     State: IMJ2AState

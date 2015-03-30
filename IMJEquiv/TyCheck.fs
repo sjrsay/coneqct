@@ -178,13 +178,19 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
     | VFld (x,f) ->
         let xTy = varLkup x
         let xI  = getIface xTy
-        fromTy (Type.ofFld d xI f)
+        let opt = Type.tryOfFld d xI f
+        match opt with
+        | Some ty -> fromTy ty
+        | None -> raise (TypeError (sprintf "Field %s is not in the interface %O of object %O" f xI x))
     | Call (m,mth,ns) ->
         let mTy = infer d g m
         let mI  = getIface mTy
-        let argTys, resTy = Type.ofMeth d mI mth
-        do List.iter2 (fun n a -> check d g n (fromTy a)) ns argTys
-        fromTy resTy
+        let opt = Type.tryOfMeth d mI mth
+        match opt with
+        | Some (argTys,resTy) ->
+            do List.iter2 (fun n a -> check d g n (fromTy a)) ns argTys
+            fromTy resTy
+        | None -> raise (TypeError (sprintf "Method %s is not in the interface %O of object %O" mth mI m))
     | Cast (j,m) ->
         let mTy = infer d g m
         let mI  = getIface mTy

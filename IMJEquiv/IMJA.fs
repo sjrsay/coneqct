@@ -568,6 +568,12 @@ module IMJA =
      let callrets = List.fold doCall Map.empty trs
      (callrets, Seq.toList hs)
 
+  let private dereference (m:Move) : Option<RegId> =
+    match m with
+    | ValM VNul ->     None
+    | ValM (VReg r) -> Some r
+    | _ -> failwith "Expected assignment variable to be a register or null."
+
   /// Given an interface table d, a type environment g, an identifier x, register id rk, interface i, methods mths and initial conditions (mu,s)
   /// returns an automaton representing the behaviour of an object with "this" identifier x and methods mths, stored in register id rk and 
   /// running from initial conditions (mu, s).
@@ -585,7 +591,7 @@ module IMJA =
     let mkMethodInits (mth: CanMeth) : List<List<Val> * Store> =
       let fldcnt = ref 0
       let _, argTys, retTy = List.find (fun (mid,_,_) -> mid = mth.Name) tyMths
-      let fldMap = List.fold (fun m ty -> fldcnt := !fldcnt + 1; Map.add (fldcnt.ToString()) (IFld ty) m) Map.empty argTys
+      let fldMap = List.fold (fun m ty -> fldcnt := !fldcnt + 1; Map.add ((!fldcnt).ToString()) (IFld ty) m) Map.empty argTys
       let ifaceDfn = Eqn fldMap
       let d' = Map.add "__fake" ifaceDfn d
       let r = -1
@@ -719,32 +725,30 @@ module IMJA =
           else
             fromCanon d g c1 mu s
       | Let (z, Assn (x,f,y), c) ->
-          let rk', v = 
-            match mu.[TyEnv.index x g] with
-            | ValM (VReg rk') -> 
-                match mu.[TyEnv.index y g] with
-                | ValM v -> rk', v
-                | _ -> failwith "Expected assignment value to be a value."
-            | _ -> failwith "Expected assignment variable to be a register."
-          let newStore = Store.update s rk' f v
-          let trimmedStore = Store.trim newStore (Move.listSupp mu)
-          let g' = g @ [(z,Ty.Void)]
-          let mu' = mu @ [ValM VStar]
-          let cAuto = fromCanon d g' c mu' trimmedStore
-          let q0 = newState ()
-          let owner = Map.add q0 P cAuto.Owner 
-          let rank = Map.add q0 s cAuto.Rank
-          let trans = 
-            { Start=q0; Label=SetL (Map.domain trimmedStore); End=cAuto.InitS }
-          {
-            States = q0 :: cAuto.States
-            Owner = owner
-            InitS = q0
-            TransRel = trans :: cAuto.TransRel
-            InitR = Map.domainList s
-            Final = cAuto.Final
-            Rank = rank
-          }
+          let ork' = dereference (mu.[TyEnv.index x g])
+          match ork' with
+          | None -> empty s
+          | Some rk' ->
+              let v = Move.toValue (mu.[TyEnv.index y g])
+              let newStore = Store.update s rk' f v
+              let trimmedStore = Store.trim newStore (Move.listSupp mu)
+              let g' = g @ [(z,Ty.Void)]
+              let mu' = mu @ [ValM VStar]
+              let cAuto = fromCanon d g' c mu' trimmedStore
+              let q0 = newState ()
+              let owner = Map.add q0 P cAuto.Owner 
+              let rank = Map.add q0 s cAuto.Rank
+              let trans = 
+                { Start=q0; Label=SetL (Map.domain trimmedStore); End=cAuto.InitS }
+              {
+                States = q0 :: cAuto.States
+                Owner = owner
+                InitS = q0
+                TransRel = trans :: cAuto.TransRel
+                InitR = Map.domainList s
+                Final = cAuto.Final
+                Rank = rank
+              }
        | Let (x, NullL ty, c) ->
           let mu' = List.append mu  [ValM VNul]
           let g' = List.append g [(x, ty)]
@@ -786,43 +790,47 @@ module IMJA =
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (y, Cast (i, x), c) ->
-           let rk' = Move.toRegister (mu.[TyEnv.index x g])
-           let j, _ = s.[rk']
-           if Type.subtype d j i then 
-             let mu' = List.append mu [ValM (VReg rk')]
-             fromCanon d g c mu' s
-           else
-             let q0 = newState ()
-             let owner = Map.singleton q0 P 
-             let rank = Map.singleton q0 s
-             {
-               States = [q0]
-               Owner = owner
-               InitS = q0
-               TransRel = []
-               InitR = Map.domainList s
-               Final = []
-               Rank = rank
-             }
+           let ork' = dereference (mu.[TyEnv.index x g])
+           match ork' with
+           | None -> empty s
+           | Some rk' ->
+               let j, _ = s.[rk']
+               if Type.subtype d j i then 
+                 let mu' = List.append mu [ValM (VReg rk')]
+                 fromCanon d g c mu' s
+               else
+                 let q0 = newState ()
+                 let owner = Map.singleton q0 P 
+                 let rank = Map.singleton q0 s
+                 {
+                   States = [q0]
+                   Owner = owner
+                   InitS = q0
+                   TransRel = []
+                   InitR = Map.domainList s
+                   Final = []
+                   Rank = rank
+                 }
        | Let (y, Fld (x,f), c) -> 
-          let rk' = Move.toRegister (mu.[TyEnv.index x g])
-          let (i,m) = s.[rk']
-          let v  = m.[f]
-          let ty = Type.ofFld d i f 
-          let mu' = List.append mu  [ValM v]
-          let g' = List.append g [(y, ty)]
-          let cAuto = fromCanon d g' c mu' s
-          cAuto
+          let ork' = dereference (mu.[TyEnv.index x g])
+          match ork' with
+          | None -> empty s
+          | Some rk' -> 
+              let (i,m) = s.[rk']
+              let v  = m.[f]
+              let ty = Type.ofFld d i f 
+              let mu' = List.append mu  [ValM v]
+              let g' = List.append g [(y, ty)]
+              let cAuto = fromCanon d g' c mu' s
+              cAuto
        | Let (x, CanLet.Call (y,m,zs), c) ->
           let yi = Type.toInterface (TyEnv.lookup y g)
           let (_, xty) = Type.ofMeth d yi m
-          match mu.[TyEnv.index y g] with
-          | ValM (VReg rj) ->
-              let mapper z : Val =
-                match mu.[TyEnv.index z g] with
-                  | ValM v -> v
-                  | _ -> failwith "Expected a value move."
-              let vs = List.map mapper zs
+          let orj = dereference (mu.[TyEnv.index y g])
+          match orj with
+          | None -> empty s
+          | Some rj ->
+              let vs = List.map (fun z -> Move.toValue (mu.[TyEnv.index z g])) zs
               let q0 = newState ()
               let q1 = newState ()
               let callm = Call (rj, m, vs)

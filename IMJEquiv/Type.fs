@@ -163,37 +163,50 @@ module Type =
     | Iface i -> i
     | _ -> failwith "Expected an interface type."
 
+
   /// Given an interface table d, an interface identifier i and the name f 
-  /// of a field f: ty belonging to that interface, returns the type ty of 
-  /// the field.
-  let rec ofFld (d: ITbl) (i: IntId) (f: FldId) : Ty =
+  /// of a field f: ty, if f is in i then returns Some ty and otherwise None.
+  let rec tryOfFld (d: ITbl) (i: IntId) (f: FldId) : Option<Ty> =
     let foo (m: IDfnMap) : Option<Ty> =
       match Map.tryFind f m with
       | None -> None
       | Some (IFld ty) -> Some ty
       | Some (IMth _)  -> failwith "Expected field."
     match d.[i] with
-    | Eqn m -> Option.get (foo m)
+    | Eqn m -> foo m
     | Ext (j, m) ->
         match foo m with
-        | None -> ofFld d j f
-        | Some ty -> ty
+        | None -> tryOfFld d j f
+        | Some ty -> Some ty
+
+  /// Given an interface table d, an interface identifier i and the name f 
+  /// of a field f: ty belonging to that interface, returns the type ty of 
+  /// the field.
+  let ofFld (d:ITbl) (i:IntId) (f:FldId) : Ty =
+    Option.get (tryOfFld d i f)
 
   /// Given an interface table d, an interface identifier i and the name mth 
-  /// of a method mth:(ty_1,...,ty_n) -> ty belonging to that interface, 
-  /// returns the type of the method as a pair ([ty_1;..;ty_n],ty).
-  let rec ofMeth (d: ITbl) (i: IntId) (mth: MethId) : (List<Ty> * Ty) =
+  /// of a method mth:(ty_1,...,ty_n) -> ty, if mth belongs to interface i then
+  /// returns the type of the method as a pair ([ty_1;..;ty_n],ty) and returns None otherwise.
+  let rec tryOfMeth (d: ITbl) (i: IntId) (mth: MethId) : Option<List<Ty> * Ty> =
     let foo (m: IDfnMap) : Option< (List<Ty>*Ty) > =
       match Map.tryFind mth m with
       | None -> None
       | Some (IFld _) -> failwith "Expected method."
       | Some (IMth (ins,out))  -> Some (ins,out)
     match d.[i] with
-    | Eqn m -> Option.get (foo m)
+    | Eqn m -> foo m
     | Ext (j, m) ->
         match foo m with
-        | None -> ofMeth d j mth
-        | Some x -> x
+        | None -> tryOfMeth d j mth
+        | Some x -> Some x
+
+  /// Given an interface table d, an interface identifier i and the name mth 
+  /// of a method mth:(ty_1,...,ty_n) -> ty belonging to that interface, 
+  /// returns the type of the method as a pair ([ty_1;..;ty_n],ty).
+  let rec ofMeth (d: ITbl) (i: IntId) (mth: MethId) : (List<Ty> * Ty) =
+    Option.get (tryOfMeth d i mth)
+
 
   /// Given an interface table d and a type t, returns true if t is
   /// ground (from the G fragment) and false otherwise.
