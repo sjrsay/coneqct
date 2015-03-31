@@ -39,6 +39,7 @@ rule tokenizeMain =
 	| "MOVE:"         { MOVE } 
 	| "STORE:"        { STORE }
 	| "TERM:"         { TERM }
+	| "maxint"        { MAXINT }
     | "null"          { NULL }
     | "skip"          { SKIP }
 	| "let"           { LET }
@@ -57,7 +58,7 @@ rule tokenizeMain =
 	| ualpha idChar*  { IID (lexeme lexbuf) }
 	| '_'             { UNDERSCORE }
 	| digit+          { NUM (Int32.Parse (lexeme lexbuf)) }
-	| '-'('-'+)       { BAR }
+	| '-'             { MINUS }
 	| '+'             { PLUS }
 	| '*'             { TIMES }
 	| '.'		      { STOP }

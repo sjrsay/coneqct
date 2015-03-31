@@ -194,16 +194,17 @@ module IMJA =
 
     let rts = List.filter (fun t -> fwdSeen.Contains (getFstState t) && fwdSeen.Contains (getSndState t)) a.TransRel
     let rfs = List.filter (fun q -> fwdSeen.Contains q) a.Final
-    let liveSet = Set.ofSeq fwdSeen // To comply with Map.restrict's API
+    let liveSet = Set.add a.InitS (Set.ofSeq fwdSeen) // Could end up with invalid automaton unless initS is in there
     let row = Map.restrict a.Owner liveSet
     let rrk = Map.restrict a.Rank liveSet
+    let sts = Set.toList liveSet
     {
       Final    = rfs
       InitR    = a.InitR
       InitS    = a.InitS
       Owner    = row
       Rank     = rrk
-      States   = List.ofSeq fwdSeen
+      States   = sts
       TransRel = rts
     }
  
@@ -763,6 +764,13 @@ module IMJA =
        | Let (x, Skip, c) ->
           let mu' = List.append mu  [ValM VStar]
           let g' = List.append g [(x, Ty.Void)]
+          let cAuto = fromCanon d g' c mu' s
+          cAuto
+       | Let (x, Minus (y,z), c) ->
+          let yval = Move.toInt (mu.[TyEnv.index y g])
+          let zval = Move.toInt (mu.[TyEnv.index z g])
+          let mu' = List.append mu  [ValM (VNum (Val.sub yval zval))]
+          let g' = List.append g [(x, Int)]
           let cAuto = fromCanon d g' c mu' s
           cAuto
        | Let (x, Plus (y,z), c) ->

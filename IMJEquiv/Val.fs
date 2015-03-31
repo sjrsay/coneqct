@@ -27,6 +27,10 @@ module Val =
   let add (i:Int) (j:Int) : Int =
     min (i+j) maxint
 
+  /// Given integers i and j, returns the maxinum of (i-j) and 0.
+  let sub (i:Int) (j:Int) : Int =
+    max (i-j) 0
+
   /// Given a value v, returns the support of v.
   let supp (v: Val) : Set<RegId> =
     match v with

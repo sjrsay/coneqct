@@ -5,7 +5,9 @@ type Term =
   | BVar of Ident
   | Num of Int32
   | Skip
+  | MaxInt 
   | Plus of Term * Term
+  | Minus of Term * Term
   | Gre of Term * Term
   | Eq of Term * Term
   | VEq of Ident * Ident
@@ -29,6 +31,8 @@ type Term =
     | BVar s -> s
     | Num n  -> n.ToString ()
     | Skip   -> "skip"
+    | MaxInt -> "maxint"
+    | Minus (x,y) -> sprintf "%O + %O" x y
     | Plus (x,y) -> sprintf "%O + %O" x y
     | Gre (x,y) -> sprintf "%O > %O" x y
     | Eq (x,y) -> sprintf "%O = %O" x y
