@@ -1,6 +1,22 @@
+/*
+  Equivalence "extended types" adapted from Benton and Leperchey's
+  "Relational Reasoning in a Nominal Semantics for Storage"
 
-I = { f: void, m:void -> void }
+*/
 
-----------------------------
+IntRef = { val:int },
+IntRefRef = { val:IntRef },
+PFunc = { m:IntRef->void },
+p : PFunc
+------------------------------------
 
-new {_:I; m:\x.x} =?= new {_:I; m:\x.x}
+let x = new {_:IntRef;} in
+let y = new {_:IntRefRef;} in
+y.val := x;
+p.m(x);
+let z = y.val in
+if z = x then div else skip
+
+  =?= 
+
+div

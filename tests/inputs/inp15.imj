@@ -1,0 +1,32 @@
+/*  
+  
+  Equivalence from the variation of the "Cell" example.  This one is from
+  Welsch and Poetzsch-Heffter page 2 of "A Fully Abstract Trace Semantics
+  for Reasoning about Backward Compatibility of Class Libraries"
+
+*/
+
+Empty = { }, 
+VarEmpty = { val: Empty }, 
+VarInt = { val: int },
+Cell = { get:void -> Empty, set:Empty -> void }
+
+------------------------------------------------------
+
+let c = new {_:VarEmpty;} in
+new {_:Cell; 
+  get: \_. c.val, 
+  set: \o. c.val := o
+}
+
+  =?=
+
+let f = new {_:VarInt;} in 
+let c1 = new {_:VarEmpty;} in 
+let c2 = new {_:VarEmpty;} in 
+new {_:Cell; 
+  get:\_.if f.val then c1.val else c2.val, 
+  set:\o.
+    (if f.val then f.val := 0 else f.val := 1);
+    (if f.val then c1.val := o else c2.val := o)
+}

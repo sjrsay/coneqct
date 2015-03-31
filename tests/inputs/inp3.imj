@@ -1,7 +1,20 @@
+/*
+  
+  Equivalence as a variation of Example 1.2 from Pitts and Stark's 
+  "Operational Reasoning for Functions with Local State".
 
-I = { f: void, m:J -> J },
-J = {}
+*/
 
-----------------------------
+IntRef = { val:int },
+I = { m:IntRef -> IntRef }
+---------------------------------------
 
-new {_:I; m:\x.x} =?= new {_:I; m:\x.null}
+let x = new {_:IntRef;} in
+new {_:I; m:\c. x}
+
+  =?=
+
+let a = new {_:IntRef;} in
+let b = new {_:IntRef;} in
+new {_:I; m:\c. if c = b then b else a }
+
