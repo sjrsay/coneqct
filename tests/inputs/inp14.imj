@@ -1,0 +1,37 @@
+/*
+  Equivalence "secrecy" adapted from Benton and Leperchey's
+  "Relational Reasoning in a Nominal Semantics for Storage"
+
+*/
+
+IntRef = { val:int },
+IntRefRef = { ref:IntRef },
+CFun = { c:(IntRefRef,IntRef)->void },
+CFun2 = { c2:(IntRef,int)->void },
+DFun = { d:IntRefRef->IntRef },
+I = { m1:void->void, m2:void->void }
+----------------------------------------------
+
+let x        = new {_:IntRef;} in
+let kb       = new {_:IntRefRef;} in
+kb.ref := x;
+let cipher   = new {_:CFun; c:\k n.k.ref := n} in
+let cipher2  = new {_:CFun2; c2:\k n.k.val := n} in
+let decipher = new {_:DFun; d:\k.k.ref } in
+new {_:I;
+	m1:\_. let ka = new {_:IntRef;} in cipher.c(kb,ka),
+	m2:\_. let k = decipher.d(kb) in cipher2.c2(k,1)
+} 
+
+  =?=
+
+let x = new {_:IntRef;} in
+let kb = new {_:IntRefRef;} in
+kb.ref := x;
+let cipher = new {_:CFun; c:\k n.k.ref := n} in
+let cipher2 = new {_:CFun2; c2:\k n.k.val := n} in
+let decipher = new {_:DFun; d:\k.k.ref } in
+new {_:I;
+	m1:\_. let ka = new {_:IntRef;} in cipher.c(kb,ka),
+	m2:\_. let k = decipher.d(kb) in cipher2.c2(k,2)
+} 

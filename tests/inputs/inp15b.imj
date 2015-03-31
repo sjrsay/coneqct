@@ -1,0 +1,31 @@
+/*  
+  
+  Inequivalence adapted from inp15.  Here, in the second term
+  we forget to alternate reading.
+
+*/
+
+Empty = { }, 
+VarEmpty = { val: Empty }, 
+VarInt = { val: int },
+Cell = { get:void -> Empty, set:Empty -> void }
+
+------------------------------------------------------
+
+let c = new {_:VarEmpty;} in
+new {_:Cell; 
+  get: \_. c.val, 
+  set: \o. c.val := o
+}
+
+  =?=
+
+let f = new {_:VarInt;} in 
+let c1 = new {_:VarEmpty;} in 
+let c2 = new {_:VarEmpty;} in 
+new {_:Cell; 
+  get:\_.c1.val, 
+  set:\o.
+    (if f.val then f.val := 0 else f.val := 1);
+    (if f.val then c1.val := o else c2.val := o)
+}
