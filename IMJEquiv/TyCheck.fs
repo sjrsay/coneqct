@@ -138,7 +138,9 @@ let rec private check (d: ITbl) (g: ETyEnv) (t: Term) (ty: ETy) : Unit =
     match t with
     | BVar x -> varLkup x    
     | Num _  -> Int
+    | MaxInt -> Int
     | Skip   -> Void
+    | Minus (m,n)
     | Plus (m,n) ->
         do check d g m Int
         do check d g n Int

@@ -46,22 +46,22 @@ let mkLet (x: Ident) (s: Term) (t: Term) : Term =
 
 %token SKIP LET IN WHILE DO RIGHTARROW EQUALS BACKSLASH INT TIMES
 %token COMMA STOP COLON SEMICOLON LPAREN RPAREN PLUS EOF TSTYLE NULL
-%token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE
-%token INTERFACE EXTENDS MOVE STORE BAR TERM SEP UNDERSCORE DIV
+%token ASSN IF THEN ELSE NEW LBRACE RBRACE VOID LANGLE RANGLE MAXINT
+%token INTERFACE EXTENDS MOVE STORE MINUS TERM SEP UNDERSCORE DIV
 %token <String> ID IID
 %token <Int32> NUM RID
 
 
 %nonassoc letterm
 %left SEMICOLON
-%left EQUALS
-%left ASSN 
-%left STOP
-%left LANGLE RANGLE
-%left PLUS 
-%nonassoc castterm
 %nonassoc ifterm
 %nonassoc doterm
+%left EQUALS
+%left ASSN 
+%left LANGLE RANGLE
+%left PLUS MINUS
+%nonassoc castterm
+%left STOP
 
 %type <Term> Term
 %type <ITbl> ITbl
@@ -78,8 +78,11 @@ Term:
   | ID                                              { Term.BVar $1 }
   | NUM						                        { constant $1; Term.Num $1 }
   | SKIP						                    { Term.Skip }
+  | MAXINT                                          { Term.MaxInt }
   | Term PLUS Term				                    { Term.Plus ($1, $3) }
   | Term PLUS Recover                               { reportError parseState "Expected term" 3 }
+  | Term MINUS Term				                    { Term.Minus ($1, $3) }
+  | Term MINUS Recover                              { reportError parseState "Expected term" 3 }
   | Term RANGLE Term                                { Term.Gre ($1, $3) }
   | Term RANGLE Recover                             { reportError parseState "Expected term" 3 }
   | Term LANGLE Term                                { Term.Gre ($3, $1) }
@@ -253,12 +256,16 @@ Cxt:
   | ID COLON Type                                   { [Typing ($1, $3)] }
   | ID COLON Type COMMA Cxt                         { Typing ($1, $3) :: $5 }
 
+Bar:
+  | MINUS                                           { () }
+  | MINUS Bar                                       { () }
+
 TermInCxt:
-  | Cxt BAR Term                                    { ($1, $3) }
+  | Cxt Bar Term                                    { ($1, $3) }
   | Cxt Recover                                     { reportError parseState "Expected bar, or perhaps you're missing a comma?" 2 }
 
 Input:
-  | Cxt BAR Term SEP Term                           { let d, g = Cxt.separate $1 in (d, g, $3, $5) }
+  | Cxt Bar Term SEP Term                           { let d, g = Cxt.separate $1 in (d, g, $3, $5) }
   | Cxt Recover                                     { reportError parseState "Expected bar, or perhaps you're missing a comma?" 2 }
 
 Recover:

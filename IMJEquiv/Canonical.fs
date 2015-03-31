@@ -54,6 +54,7 @@ and CanLet =
   | NullL of Ty
   | Num of Int32
   | Skip
+  | Minus of Ident * Ident
   | Plus of Ident * Ident
   | Eq of Ident * Ident
   | Gre of Ident * Ident
@@ -74,6 +75,7 @@ and CanLet =
     | NullL _ -> Term.Null
     | Num n -> Term.Num n
     | Skip -> Term.Skip
+    | Minus (x,y) -> Term.Minus (BVar x, BVar y)
     | Plus (x,y) -> Term.Plus (BVar x, BVar y)
     | Gre (x,y) -> Term.Gre (BVar x, BVar y)
     | Eq (x,y) -> Term.VEq (x, y)
@@ -116,6 +118,7 @@ module Canonical =
     | Num _ 
     | Skip  -> c
     | Gre (x, y) -> Gre (subIdent sub x, subIdent sub y)
+    | Minus (x,y) -> Minus (subIdent sub x, subIdent sub y)
     | Plus (x, y) -> Plus (subIdent sub x, subIdent sub y)
     | Eq (x, y) -> Eq (subIdent sub x, subIdent sub y)
     | Assn (x, f, z) -> Assn (subIdent sub x, f, subIdent sub z)
@@ -198,6 +201,7 @@ module Canonical =
     | NullL _
     | Num _ 
     | Skip  
+    | Minus _
     | Plus _ 
     | Gre _
     | Eq _ 
@@ -270,16 +274,21 @@ module Canonical =
     | BVar x -> Var x
     | Null -> NullR
     | Term.Num i ->  
-        let x = newVar ()
-        Let (x, Num i, Var x)
+        letout (Num i)
     | Term.Skip -> 
-        let x = newVar ()
-        Let (x, Skip, Var x)
+        letout Skip
+    | Term.MaxInt ->
+        letout (Num Val.maxint)
+    | Term.Minus (m, m') ->
+        let x   = newVar ()
+        let x'  = newVar ()
+        let let1 = letout (Minus (x, x'))
+        let let2 = lemma34 x' (canonise d e m') let1
+        lemma34 x (canonise d e m) let2
     | Term.Plus (m, m') ->
         let x   = newVar ()
         let x'  = newVar ()
-        let x'' = newVar ()
-        let let1 = Let (x'', Plus (x, x'), Var x'')
+        let let1 = letout (Plus (x, x'))
         let let2 = lemma34 x' (canonise d e m') let1
         lemma34 x (canonise d e m) let2
     | Term.Gre (m, m') ->
