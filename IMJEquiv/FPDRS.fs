@@ -2,20 +2,6 @@
 
   open RegSat
 
-  let initState (n:Int) (q: SpanState) (i: State) =
-    let ls = Map.codomain q.Span.Left
-    let rs = Map.codomain q.Span.Right
-    let regs = ls + rs
-    let f i =
-      if i = 0 then 
-        Empty 
-      elif Set.contains i regs then 
-        Filled Local
-      else
-        Empty
-    let arr = Array.init (n+1) f
-    { Id=i; Flags=arr }
-
   let fpdra (p: FPDRA) : FPDRS * State * List<State> =
 
     let sNum = ref 0
