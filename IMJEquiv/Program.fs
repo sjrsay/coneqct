@@ -106,14 +106,12 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   do printf "\tFPDRS: %d states, %d transitions, %d registers (%dms).\n" fpdrs.NumStates fpdrs.NumTrans fpdrs.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
 
-  let extInit = Serialise.initState fpdrs.NumRegs fpdra.Initial initial
-  let extFinals = [ for f in finals do yield! RegSat.ExtState.ofStateEG fpdrs.NumRegs f ]
-  let ra = { States = HashSet extFinals; Trans = HashMap (); NumRegs = fpdrs.NumRegs } : RegSat.RA
+  let ra = { States = HashSet finals; Trans = HashMap (); NumRegs = fpdrs.NumRegs } : RegSat.RA
   do RegSat.Sat.sat fpdrs ra
   do printf "\tRA: %d states, %d transitions, %d registers (%dms).\n" ra.States.Count (RegSat.RA.numTrans ra) ra.NumRegs timer.ElapsedMilliseconds
   do timer.Restart ()
 
-  let b = RegSat.RA.reach [extInit] finals ra
+  let b = RegSat.RA.reach [initial] finals ra
   let result = if b then Inequivalent else Equivalent
   do printf "\tResult: %A (%d ms).\n\n" result timer.ElapsedMilliseconds
   result
