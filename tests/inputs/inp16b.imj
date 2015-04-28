@@ -1,0 +1,35 @@
+/*
+
+  Inequivalence as a modification of Andrzej's equivalence based on the 
+  cell example.  Here we forget to alternate assignments to f.val in 
+  the set method of the first term.
+
+*/
+
+Empty = { }, 
+VarEmpty = { val: Empty }, 
+VarInt = { val: int },
+Cell = { get:void -> Empty, getprev:void -> Empty, set:Empty -> void }
+
+------------------------------------------------------
+
+let f = new {_:VarInt;} in 
+let c1 = new {_:VarEmpty;} in 
+let c2 = new {_:VarEmpty;} in 
+new {_:Cell; 
+  get:\_.if f.val then c1.val else c2.val, 
+  getprev:\_.if f.val then c2.val else c1.val,
+  set:\o.
+    (if f.val then f.val := 0 else f.val := 0);
+    (if f.val then c1.val := o else c2.val := o)
+}
+
+  =?=
+
+let last = new {_:VarEmpty;} in
+let current = new {_:VarEmpty	;} in
+new {_:Cell;
+  get:\_.current.val,
+  getprev:\_.last.val,
+  set:\o. last.val := current.val; current.val := o
+}
