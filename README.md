@@ -1,4 +1,4 @@
-# Equivalence checking for IMJ #
+# A contextual equivalence checker for Interface Middleweight Java #
 
 ## Getting started with the code ##
 
