@@ -53,19 +53,19 @@ let specs = [
     "-maxint", ArgType.Int (fun n -> Val.maxint <- max Val.maxint n), "Set the value of the largest integer."
     "-pc1",    ArgType.Set printC1,                                   "Write canonical form of term 1 to the terminal."
     "-pc2",    ArgType.Set printC2,                                   "Write canonical form of term 2 to the terminal."
-    "-pa1",    ArgType.Set printA1,                                   "Write dot representation of IMJ automaton for term 1 to file \"auto1.dot\"."
-    "-pa2",    ArgType.Set printA2,                                   "Write dot representation of IMJ automaton for term 2 to file \"auto2.dot\"."
+    "-pa1",    ArgType.Set printA1,                                   "Write IMJ automaton for term 1 to file \"auto1.dot\"."
+    "-pa2",    ArgType.Set printA2,                                   "Write IMJ automaton for term 2 to file \"auto2.dot\"."
   ] 
 let compiledSpecs = List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc)) specs
 
 // Command line usage string
 let usageText = @"
     Usage: 
-       IMJEquiv.exe [OPTIONS] <input>
+        coneqct.exe [OPTIONS] <input>
 
-       Given the name <input> of a file containing a description of 
-       an instance of the equivalence problem for two IMJ terms
-       belonging to the cut fragment, IMJEquiv decides the instance.
+        Given the name <input> of a file containing a description of 
+        an instance of the equivalence problem for two IMJ* terms
+        coneqct decides the validity of the equivalence.
   
     Options:"
 
@@ -123,7 +123,9 @@ let main _ =
 
     let totalTimer = Stopwatch.StartNew ()
 
-    do printf "\n\t\t\tContextual Equivalence Checker \n\t\t\t\t     for \n\t\t\t  Interface Middleweight Java\n\n"
+    do printf "\n           Coneqct: a contextual equivalence checking tool"
+    do printf "\n                   for Interface Middleweight Java"
+    do printf "\n"
 
     if !inputFile = "" then exitWithUsage ()
     let d, g, tm1, tm2 = 
