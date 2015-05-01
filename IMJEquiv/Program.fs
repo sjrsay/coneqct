@@ -125,7 +125,7 @@ let main _ =
 
     do printf "\n           Coneqct: a contextual equivalence checking tool"
     do printf "\n                   for Interface Middleweight Java"
-    do printf "\n"
+    do printf "\n\n"
 
     if !inputFile = "" then exitWithUsage ()
     let d, g, tm1, tm2 = 
