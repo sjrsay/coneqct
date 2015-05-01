@@ -7,7 +7,7 @@
     <ProjectGuid>{4168AAD1-641A-463D-A058-17D1AEE22D7A}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>IMJEquiv</RootNamespace>
-    <AssemblyName>IMJEquiv</AssemblyName>
+    <AssemblyName>coneqct</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
