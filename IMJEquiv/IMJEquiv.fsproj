@@ -26,7 +26,7 @@
     <DocumentationFile>..\Debug\IMJEquiv.XML</DocumentationFile>
     <Prefer32Bit>true</Prefer32Bit>
     <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug</StartWorkingDirectory>
-    <StartArguments>..\tests\inputs\inp15.imj</StartArguments>
+    <StartArguments>..\tests\inputs\inp5.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -40,9 +40,8 @@
     <Prefer32Bit>true</Prefer32Bit>
     <OtherFlags>
     </OtherFlags>
-    <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\Debug\</StartWorkingDirectory>
-    <StartArguments>
-    </StartArguments>
+    <StartWorkingDirectory>C:\Users\steven\SkyDrive\Projects\IMJEquiv\</StartWorkingDirectory>
+    <StartArguments>\tests\inputs\inp5.imj</StartArguments>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

@@ -6,12 +6,14 @@ type Move =
   | ValM of Val
   | Call of RegId * MethId * List<Val>
   | Ret of RegId * MethId * Val
+  | Dummy
 
   override x.ToString () =
     match x with
     | ValM v -> v.ToString ()
     | Call (r, mth, vs) -> sprintf "call %d.%s(%s)" r mth (List.toStringWithDelims "" "," "" vs)
     | Ret (r, mth, v) -> sprintf "ret %d.%s(%O)" r mth v
+    | Dummy -> sprintf "dummy"
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Move =
@@ -24,6 +26,7 @@ module Move =
         List.fold (fun rvs v -> Set.union (Val.supp v) rvs) (Set.singleton r) vs
     | Ret (r,mth,v) ->
         Set.add r (Val.supp v)
+    | Dummy -> Set.empty
 
   /// Given a list of moves (tuple move), returns its support.
   let listSupp (ms: List<Move>) : Set<RegId> =

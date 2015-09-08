@@ -58,7 +58,7 @@ module IMJ2A =
   let transFromState (a: IMJ2A) (q: IMJ2AState) : List<IMJ2ATransition> =
     List.filter (fun (q1,_,_) -> q = q1) a.Trans
 
-  /// Given initial conditions (mu,s) and two IMJA a1 and a2
+  /// Given initial conditions (mu,s) and two IMJA a1 and a2 returns
   /// the IMJ2 automaton which searches for a word contained in
   /// the symmetric difference of L(a1) and L(a2).
   let fromIMJA (a1: IMJA) (a2: IMJA) (mu: List<Move>, s: Store) : IMJ2A =
@@ -121,12 +121,14 @@ module IMJ2A =
     let simO =
       List.productWith (fun x y -> Sim (x, y)) a1OStates a2OStates
     let simP =
-      List.productWith (fun x y -> Sim (x, y)) a1OStates a2OStates
+      List.productWith (fun x y -> Sim (x, y)) a1PStates a2PStates
     let div1 = List.map (fun x -> Div1 x) a1.States
     let div2 = List.map (fun x -> Div2 x) a2.States
+    let divs = div1 @ div2
     let init = Sim (a1.InitS, a2.InitS)
-    let final = div1 @ div2
-    let states = simO @ simP @ final
+    let final1 = List.map (fun x -> Div1 x) a1.Final
+    let final2 = List.map (fun x -> Div2 x) a2.Final
+    let states = simO @ simP @ div1 @ div2
     let rank =
       let rankPairState (m: Map<IMJ2AState,Store * Store>) (q: IMJ2AState) =
         match q with
@@ -142,7 +144,7 @@ module IMJ2A =
       Rank    = rank
       InitS   = init
       Trans   = !trans
-      Final   = final
+      Final   = final1 @ final2
       NumRegs = numRegs1 + numRegs2
       InitC   = (mu,s)
     }
