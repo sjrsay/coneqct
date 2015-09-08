@@ -105,6 +105,7 @@ module IMJA =
     do stateCount := !stateCount + 1
     Simple !stateCount
 
+
   /// Given a set of registers fxd and two transition labels tl1 and tl2,
   /// returns true just if there is a permuation of register ids p which
   /// fixes registers in fxd and witnesses tl1 = p . tl2
@@ -185,12 +186,12 @@ module IMJA =
     let fwdReach = reach (getFstState,getSndState) fwdSeen
     do ignore (fwdReach [a.InitS])
 
-    let bwdSeen  = HashSet a.Final
-    let bwdReach = reach (getSndState,getFstState) bwdSeen
-    do ignore (bwdReach a.Final)
+//    let bwdSeen  = HashSet a.Final
+//    let bwdReach = reach (getSndState,getFstState) bwdSeen
+//    do ignore (bwdReach a.Final)
 
     // fwdSeen now contains all the live states
-    do fwdSeen.IntersectWith bwdSeen
+//    do fwdSeen.IntersectWith bwdSeen
 
     let rts = List.filter (fun t -> fwdSeen.Contains (getFstState t) && fwdSeen.Contains (getSndState t)) a.TransRel
     let rfs = List.filter (fun q -> fwdSeen.Contains q) a.Final
@@ -210,9 +211,10 @@ module IMJA =
  
 
   /// Given an automaton a, returns a but with all loops of
-  /// P-owned epsilon transitions replaced by *-move transitions 
-  /// to a new "sink" state.
-  let remPLoops (a: IMJA) : IMJA =
+  /// P-owned epsilon transitions replaced by dummy move transitions 
+  /// to a new "sink" state and for any P-owned state without any
+  /// outgoing transitions, adds a new dummy move transition to the sink.
+  let fixup (a: IMJA) : IMJA =
 
     let sink = newState ()
 
@@ -264,16 +266,25 @@ module IMJA =
       Seq.fold (fun acc (_,p) -> List.fold (fun xs t -> Set.add t xs) acc p) Set.empty loops
 
     let mkNewTrans q = 
-      let tl = NoopL (Set.empty, (ValM VStar, Map.empty))
+      let tl = NoopL (Set.empty, (Dummy, Map.empty))
       { Start=q; Label=MoveL tl; End=sink }
 
     let trans' = 
       Seq.fold (fun acc q -> (mkNewTrans q) :: acc) (List.filter (fun t -> not (Seq.contains t trans)) a.TransRel) states
 
+    /// Augments each state without any transitions with 
+    /// an extra "dummy" transition, which is a noop, dummy move.
+    let augTrans = [
+        for q in a.States do
+          if a.Owner.[q] = P then
+            if List.forall (fun t -> getFstState t <> q) a.TransRel then
+              yield { Start = q; Label = MoveL (NoopL (Set.empty,(Dummy,Map.empty))); End = q}
+      ]
+
     { 
       a with 
         States = sink :: a.States 
-        TransRel = trans' 
+        TransRel = augTrans @ trans' 
         Owner = Map.add sink O a.Owner
         Rank = Map.add sink Map.empty a.Rank
     }
@@ -483,7 +494,7 @@ module IMJA =
                             let newq = Hiding (q,r)
                             let y' = Set.difference y domR
                             let z' = Set.difference z domR
-                            PopL  (x, (mu, sMinusR), newq, y', z')
+                            PopL  (x, (mu, sMinusR), q, y', z')
                         | MoveL (NoopL  _) ->
                             NoopL (x, (mu, sMinusR))
                         | _ -> failwith "Impossible"
@@ -511,7 +522,7 @@ module IMJA =
                   | MoveL (PushL (_, _, q, y)) ->
                       let newq = Hiding (q,r')
                       let y' = Set.difference y (Map.domain r')
-                      PushL (x', (mu, s'), newq, y')
+                      PushL (x', (mu, s'), q, y')
                   | MoveL (NoopL  _) -> NoopL (x', (mu, s')) 
                   | _ -> failwith "Impossible"
                 let acc' = Set.add { Start=qpr; Label=MoveL tl'; End=qo'r' } acc
@@ -549,7 +560,7 @@ module IMJA =
   type CallRet = Call * Ret
 
   /// Given a register id rk, an ownership map owner and a list of transitions trs, returns the pair (m, ts)
-  /// where m maps each call from a move in trs to the matching retursn in trs and ts is trs with all
+  /// where m maps each call from a move in trs to the matching returns in trs and ts is trs with all
   /// calls and their matching returns removed.
   let private partitionCallRets (rk: RegId) (owner: Map<IMJAState,Player>) (trs: List<IMJATransition>) : Map<Call, List<Ret>> * List<IMJATransition> =
      let hs = HashSet trs
@@ -665,6 +676,11 @@ module IMJA =
             accTrans := qq' :: q'q'' :: q''qfsj :: !accTrans
         | _ -> failwith "Expected labelled noop value transition as final transition"
       // Construct push transitions
+      // In the push and pop transitions we fix a bug in the algorithm
+      // which does not anticipate multiple return points to the same push.
+      // Hence, here we push the intermediate state (common to every such pair) q'
+      // rather than the ultimate destination q'' (potentially different in each call
+      // return pair even for a single call).
       let callRets, rest' = partitionCallRets rk ci.Owner rest
       do accTrans := rest' @ !accTrans // at this point rest' remain untouched
       for crp in callRets do

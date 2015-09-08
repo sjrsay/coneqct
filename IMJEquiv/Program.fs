@@ -86,14 +86,14 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   do printf "Processing initial position (%s, %A):\n" (Move.listToString mu) s
   
   let a1    = IMJA.fromCanon d g c1 mu s
-  let a1'   = IMJA.remPLoops a1
-  do printf "\tIMJA 1: %d states, %d transitions (%dms).\n" a1.States.Length a1.TransRel.Length timer.ElapsedMilliseconds
-  if !printA1 then System.IO.File.WriteAllText ("auto1.dot", IMJA.toDot a1)
+  let a1'   = IMJA.fixup a1
+  do printf "\tIMJA 1: %d states, %d transitions (%dms).\n" a1'.States.Length a1'.TransRel.Length timer.ElapsedMilliseconds
+  if !printA1 then System.IO.File.WriteAllText ("auto1.dot", IMJA.toDot a1')
   do timer.Restart ()
 
   let a2    = IMJA.fromCanon d g c2 mu s
-  let a2'   = IMJA.remPLoops a2
-  do printf "\tIMJA 2: %d states, %d transitions (%dms).\n" a2.States.Length a2.TransRel.Length timer.ElapsedMilliseconds
+  let a2'   = IMJA.fixup a2
+  do printf "\tIMJA 2: %d states, %d transitions (%dms).\n" a2'.States.Length a2'.TransRel.Length timer.ElapsedMilliseconds
   if !printA2 then System.IO.File.WriteAllText ("auto2.dot", IMJA.toDot a2')
   do timer.Restart ()
 
@@ -104,6 +104,7 @@ let solveFromInitPos (d: ITbl) (g: TyEnv) (c1: Canon) (c2: Canon) (mu: List<Move
   let fpdra = FPDRA.fromIMJ2A imj2
   let fpdrs, initial, finals = Serialise.fpdra fpdra
   do printf "\tFPDRS: %d states, %d transitions, %d registers (%dms).\n" fpdrs.NumStates fpdrs.NumTrans fpdrs.NumRegs timer.ElapsedMilliseconds
+  System.IO.File.WriteAllText ("fpdrs.dot", RegSat.FPDRS.toDot fpdrs finals)
   do timer.Restart ()
 
   let ra = { States = HashSet finals; Trans = HashMap (); NumRegs = fpdrs.NumRegs } : RegSat.RA
